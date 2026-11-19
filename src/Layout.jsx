@@ -6,6 +6,7 @@ import Icon from './icons.jsx';
 import { useCompany, companyName } from './company.js';
 import { useOffline, pendingCount } from './offline/store.js';
 import { SyncPill } from './m/common.jsx';
+import { CLIENT_VERSION, useServerVersion, hardReload } from './version.js';
 
 export default function Layout({ user, onLogout }) {
   const t = useT();
@@ -29,6 +30,7 @@ export default function Layout({ user, onLogout }) {
     ['/audit', 'log', t('audit')],
     ['/settings', 'settings', t('settings')],
   ];
+  const sv = useServerVersion();
   const off = useOffline();
   const logout = async () => {
     const n = pendingCount();
@@ -45,7 +47,8 @@ export default function Layout({ user, onLogout }) {
             <Icon n={ic} />{label}
           </NavLink>
         ))}
-        <div className="foot">{stock ? (zh ? `庫存 ${num(stock.bottles)} 瓶 · ${num(stock.cases)} 箱` : `${num(stock.bottles)} bottles · ${num(stock.cases)} cases`) : ' '}</div>
+        <div className="foot">{stock ? (zh ? `庫存 ${num(stock.bottles)} 瓶 · ${num(stock.cases)} 箱` : `${num(stock.bottles)} bottles · ${num(stock.cases)} cases`) : ' '}
+          <div style={{ marginTop: 4 }}>{zh ? '版本' : 'Version'} v{CLIENT_VERSION}{sv && sv.version !== CLIENT_VERSION && <button className="linkish" onClick={hardReload} title={zh ? '伺服器已更新到 v' + sv.version : 'Server is v' + sv.version} style={{ marginLeft: 6, color: '#F2C66D', background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}>{zh ? `有新版 v${sv.version}，按此更新` : `v${sv.version} available, reload`}</button>}</div></div>
       </nav>
       <div className="main">
         <header className="top">

@@ -9,6 +9,7 @@ import { parseWorkbook, summarize, commitImport, norm } from './importer.js';
 import { mountM2, readSettings, PHOTO_DIR } from './m2.js';
 import { mountStockout } from './stockout.js';
 import { mountAdmin } from './admin.js';
+import { VERSION, STARTED } from './version.js';
 import { mountM3 } from './m3.js';
 import { mountOrders } from './orders.js';
 import { setupPage } from './setup.js';
@@ -47,6 +48,7 @@ export function createApp(db, opts = {}) {
   });
   app.get('/setup', async (req, res) => res.type('html').send(await setupPage(req, opts)));
   // 公司名稱與 Logo（登入畫面也要顯示，不需登入）
+  app.get('/api/public/version', (_req, res) => res.json({ version: VERSION, started: STARTED }));
   app.get('/api/public/company', (_req, res) => { const c = readSettings(db).company; res.json({ name_zh: c.name_zh, name_en: c.name_en, logo: c.logo }); });
   app.get('/api/public/logo', (_req, res) => {
     const f = readSettings(db).company.logo;

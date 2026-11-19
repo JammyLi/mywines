@@ -21,8 +21,12 @@ function serviceWorker() {
   };
 }
 
+const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'));
+
 export default defineConfig({
   plugins: [react(), serviceWorker()],
+  // 版本號：畫面與伺服器各自帶一份，不一致代表畫面還沒重新建置
+  define: { __APP_VERSION__: JSON.stringify(pkg.version), __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   build: { sourcemap: process.env.SOURCEMAP === '1' },
   server: { host: true, proxy: { '/api': 'http://localhost:3000' } },
 });

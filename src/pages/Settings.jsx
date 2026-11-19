@@ -8,6 +8,7 @@ import { Changes } from './parts.jsx';
 import { bookmarkletCode } from './Prices.jsx';
 import { reloadCompany } from '../company.js';
 import ServerInfo from './ServerInfo.jsx';
+import VersionInfo from './VersionInfo.jsx';
 
 const ACT = { new: ['新增', 'New'], update: ['修改', 'Update'], same: ['不變', 'No change'], error: ['錯誤', 'Error'] };
 
@@ -78,6 +79,7 @@ function Company({ zh }) {
       </div>
       <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn primary" onClick={async () => { await run(() => api('/api/settings/company', { method: 'PUT', body: f }), zh ? '已儲存公司資料' : 'Saved'); reloadCompany(); }}>{zh ? '儲存公司資料' : 'Save'}</button></div>
       <ServerInfo zh={zh} />
+      <VersionInfo zh={zh} />
     </Section>
   );
 }
