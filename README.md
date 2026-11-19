@@ -2,7 +2,12 @@
 
 辦公室內網使用。資料只存在這台電腦的 `data/mywines.db`，不會上傳到外部。
 
-## 第一次安裝
+## Windows 電腦：用安裝檔
+
+執行 `MyWines-Setup-<版本>.exe`，一路按「下一步」即可。會裝成開機自動執行的 Windows 服務，資料放在 `C:\ProgramData\MyWines`。
+詳見 [installer/windows/README.md](installer/windows/README.md)（也說明如何產生安裝檔）。
+
+## 第一次安裝（Mac / 開發）
 
 需要 Node.js 20 以上（https://nodejs.org 下載 LTS 版）。在這個資料夾打開「終端機」：
 
@@ -66,6 +71,12 @@ Mac 第一次啟動時如果跳出「是否允許 node 接受連入連線」，�
 也可以用指令匯入：`npm run import -- sample_data/Inventory.xlsx`
 
 ## 重新開始（清空資料）
+
+在系統裡：**設定 › 清除資料**，可分別清空庫存、訂單、使用者、客戶、酒窖、異動紀錄。
+每次都要輸入「刪除＋項目名稱」和自己的 6 位數密碼，並會先自動備份整個資料庫到 `data/backup/`。
+客戶還有訂單時不能刪；酒窖還有酒時不能刪（先清庫存）。酒瓶編號不會歸零，舊標籤不會撞號。
+
+全部重來（伺服器電腦上）：
 
 ```
 npm run reset-db

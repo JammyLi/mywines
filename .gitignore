@@ -8,3 +8,6 @@ design/*.tgz
 .DS_Store
 *.log
 sample_data/
+installer/windows/.cache/
+installer/windows/.stage/
+installer/windows/out/

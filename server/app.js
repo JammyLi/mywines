@@ -8,6 +8,7 @@ import { ROOT, audit } from './db.js';
 import { parseWorkbook, summarize, commitImport, norm } from './importer.js';
 import { mountM2, readSettings, PHOTO_DIR } from './m2.js';
 import { mountStockout } from './stockout.js';
+import { mountAdmin } from './admin.js';
 import { mountM3 } from './m3.js';
 import { mountOrders } from './orders.js';
 import { setupPage } from './setup.js';
@@ -297,6 +298,7 @@ export function createApp(db, opts = {}) {
   mountM3(app, db);
   mountOrders(app, db);
   mountStockout(app, db);
+  mountAdmin(app, db);
 
   // ---------- 前端 ----------
   const dist = path.join(ROOT, 'dist');

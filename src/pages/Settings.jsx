@@ -322,8 +322,53 @@ function PriceSettings({ zh }) {
   );
 }
 
+const CNT = { wines: ['酒款', 'wines'], bottles: ['酒瓶', 'bottles'], cases: ['酒箱', 'cases'], orders: ['訂單', 'orders'], lists: ['清單', 'lists'], reserved: ['保留中酒瓶', 'reserved bottles'],
+  users: ['其他使用者', 'other users'], customers: ['客戶', 'customers'], cellars: ['酒窖', 'cellars'], lockers: ['分儲空間', 'lockers'], racks: ['架子', 'racks'], logs: ['筆紀錄', 'entries'] };
+const SCOPE_EN = { inventory: 'Inventory', orders: 'Orders', users: 'Users', customers: 'Customers', cellars: 'Cellars', logs: 'Change log' };
+
+function ClearData({ zh }) {
+  const [v, setV] = useState(0);
+  const { data } = useApi('/api/admin/clear?v=' + v);
+  const [dlg, setDlg] = useState(null);
+  const [done, setDone] = useState(null);
+  const go = async () => {
+    const r = await run(() => api('/api/admin/clear', { method: 'POST', body: { scope: dlg.k, phrase: dlg.phrase, password: dlg.password } }), zh ? '已清除' : 'Cleared');
+    setDone(r); setDlg(null); setV(v + 1);
+  };
+  return (
+    <Section title={zh ? '清除資料' : 'Clear data'} sub={zh ? '把整類資料清空，例如測試完要正式上線時。每次清除前都會自動備份整個資料庫。' : 'Empty a whole category, e.g. after testing. The full database is backed up first, every time.'}>
+      <div className="flash warn">{zh ? '⚠ 清除後畫面上就看不到這些資料。需要兩道確認：輸入確認文字＋你自己的 6 位數密碼。' : '⚠ Two checks are required: type the confirmation phrase and your own 6-digit password.'}</div>
+      {done && <div className="flash ok">{zh ? `已清除「${done.scope && data?.[done.scope]?.label}」。備份檔：data/backup/${done.backup}（要還原請找系統管理員）` : `Cleared. Backup: data/backup/${done.backup}`}</div>}
+      <div className="tbl-wrap"><table className="tbl stack">
+        <thead><tr><th>{zh ? '項目' : 'Item'}</th><th>{zh ? '會刪除' : 'Deletes'}</th><th>{zh ? '目前數量' : 'Current'}</th><th></th></tr></thead>
+        <tbody>{data && Object.entries(data).map(([k, s]) => {
+          const empty = Object.entries(s.counts).filter(([c]) => !(k === 'customers' && c === 'orders') && !(k === 'cellars' && c === 'bottles')).every(([, x]) => !x);
+          return (
+            <tr key={k}>
+              <td style={{ whiteSpace: 'nowrap' }}><b>{zh ? s.label : SCOPE_EN[k]}</b></td>
+              <td className="small">{s.desc}{s.blocked && <div className="tag warn" style={{ marginTop: 4 }}>{s.blocked}</div>}</td>
+              <td className="small">{Object.entries(s.counts).filter(([c]) => !(k === 'customers' && c === 'orders') && !(k === 'cellars' && c === 'bottles')).map(([c, x]) => <div key={c}>{num(x)} {zh ? CNT[c]?.[0] : CNT[c]?.[1]}</div>)}</td>
+              <td><button className="btn mini" style={{ color: 'var(--err)', borderColor: 'var(--err)' }} disabled={!!s.blocked || empty} onClick={() => setDlg({ k, s, phrase: '', password: '' })}>{zh ? '清除…' : 'Clear…'}</button></td>
+            </tr>);
+        })}</tbody></table></div>
+      {dlg && (
+        <Modal title={(zh ? '清除' : 'Clear ') + (zh ? dlg.s.label : SCOPE_EN[dlg.k])} onClose={() => setDlg(null)}
+          footer={<><button className="btn" onClick={() => setDlg(null)}>{zh ? '取消' : 'Cancel'}</button>
+            <button className="btn" style={{ background: 'var(--err)', borderColor: 'var(--err)', color: '#fff' }} disabled={dlg.phrase.trim() !== dlg.s.phrase || !/^\d{6}$/.test(dlg.password)} onClick={go}>{zh ? '永久清除' : 'Clear permanently'}</button></>}>
+          <div className="flash err">{dlg.s.desc}</div>
+          <label className="f"><span>{zh ? <>第一道確認：請輸入「<b>{dlg.s.phrase}</b>」</> : <>Step 1: type <b>{dlg.s.phrase}</b></>}</span>
+            <input className="input" autoComplete="off" value={dlg.phrase} onChange={(e) => setDlg({ ...dlg, phrase: e.target.value })} /></label>
+          <label className="f">{zh ? '第二道確認：你自己的 6 位數密碼' : 'Step 2: your own 6-digit password'}
+            <input className="input" type="password" inputMode="numeric" maxLength={6} autoComplete="current-password" value={dlg.password} onChange={(e) => setDlg({ ...dlg, password: e.target.value.replace(/\D/g, '') })} /></label>
+          <div className="muted small">{zh ? '按下後會先備份整個資料庫到 data/backup，再刪除。' : 'The whole database is backed up to data/backup before deleting.'}</div>
+        </Modal>
+      )}
+    </Section>
+  );
+}
+
 const TABS = [['company', '公司資料', 'Company', Company], ['users', '使用者', 'Users', Users], ['customers', '客戶', 'Customers', Customers], ['merchants', '酒商', 'Merchants', Merchants],
-  ['types', '代碼表（術語）', 'Code tables', Types], ['storage', '儲位管理', 'Storage', Storage], ['price', '查價設定', 'Price lookup', PriceSettings]];
+  ['types', '代碼表（術語）', 'Code tables', Types], ['storage', '儲位管理', 'Storage', Storage], ['price', '查價設定', 'Price lookup', PriceSettings], ['clear', '清除資料', 'Clear data', ClearData]];
 
 export default function Settings() {
   const { tab = 'company' } = useParams();
