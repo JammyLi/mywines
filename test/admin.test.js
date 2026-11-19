@@ -24,6 +24,8 @@ test('清除資料：兩道確認、阻擋、備份、紀錄', async () => {
     const o = (await call('POST', '/api/orders', { customer_id: c.id, wine_nos: [w] })).body;
     await call('PUT', '/api/orders/' + o.order_no, { lines: [{ wine_no: w, qty: 1, unit_price: 100 }] });
     await call('POST', `/api/orders/${o.order_no}/confirm`);
+    const si = (await call('GET', '/api/server-info')).body;
+    assert.ok(Array.isArray(si.ips) && si.urls.every((u) => u.pc.startsWith('http://')));
     let s = (await call('GET', '/api/admin/clear')).body;
     assert.match(s.customers.blocked, /訂單/);
     assert.match(s.cellars.blocked, /庫存/);

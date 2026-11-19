@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import bcrypt from 'bcryptjs';
 import { ROOT, audit } from './db.js';
+import { lanAddresses } from './tls.js';
 import { h, bad, HttpError, PHOTO_DIR, readSettings } from './m2.js';
 
 const DATA = () => process.env.MYWINES_DATA || path.join(ROOT, 'data');
@@ -35,7 +36,13 @@ function blocker(scope, c) {
 }
 const stamp = () => { const d = new Date(), p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
 
-export function mountAdmin(app, db) {
+export function mountAdmin(app, db, opts = {}) {
+  // 連線位址：給其他電腦與手機用的網址（需登入）
+  app.get('/api/server-info', h(() => {
+    const http = opts.httpPort || 3000, https = opts.httpsPort || 3443;
+    const ips = lanAddresses();
+    return { ips, httpPort: http, httpsPort: opts.caPath ? https : null, urls: ips.map((ip) => ({ ip, pc: `http://${ip}:${http}`, phone: opts.caPath ? `https://${ip}:${https}/m` : null, setup: `http://${ip}:${http}/setup` })) };
+  }));
   const U = (req) => req.user.login;
 
   app.get('/api/admin/clear', h((req) => {

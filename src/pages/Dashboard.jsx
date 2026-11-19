@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import ServerInfo from './ServerInfo.jsx';
 import { useApi } from '../hooks.js';
 import { ntd, num } from '../api.js';
 import { useT } from '../i18n.jsx';
@@ -50,6 +51,7 @@ export default function Dashboard() {
           {d.recent.map((r, i) => <tr key={i}><td className="muted" style={{ whiteSpace: 'nowrap' }}>{r.ts.slice(5, 16)}</td><td>{r.user_login}</td><td><span className="tag">{r.category}</span></td><td>{r.action}</td><td>{r.obj_label}</td></tr>)}
         </tbody></table></div>
       </div>
+      <ServerInfo zh={zh} compact />
     </div>
   );
 }

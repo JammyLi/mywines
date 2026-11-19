@@ -298,7 +298,7 @@ export function createApp(db, opts = {}) {
   mountM3(app, db);
   mountOrders(app, db);
   mountStockout(app, db);
-  mountAdmin(app, db);
+  mountAdmin(app, db, opts);
 
   // ---------- 前端 ----------
   const dist = path.join(ROOT, 'dist');
