@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+*.db
+*.db-wal
+*.db-shm
+design/*.tgz
+.DS_Store
+*.log
+sample_data/

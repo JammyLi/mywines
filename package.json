@@ -1,0 +1,35 @@
+{
+  "name": "mywines",
+  "version": "0.1.0",
+  "private": true,
+  "description": "酒類庫存管理系統（第一期：基礎）",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "start": "node server/index.js",
+    "dev": "vite",
+    "import": "node scripts/import-excel.js",
+    "reset-db": "node scripts/reset-db.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.4.0",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "jsqr": "^1.4.0",
+    "multer": "^2.0.2",
+    "node-forge": "^1.4.3",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.0",
+    "vite": "^7.2.0"
+  }
+}

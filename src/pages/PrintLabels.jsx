@@ -1,0 +1,44 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api } from '../api.js';
+import { receive } from '../handoff.js';
+import { run } from '../ui.jsx';
+import { Label, labelKey } from './Labels.jsx';
+
+export default function PrintLabels() {
+  const [sp] = useSearchParams();
+  const nav = useNavigate();
+  const data = receive(sp.get('k'));
+  const [asked, setAsked] = useState(false);
+  const zh = (localStorage.getItem('lang') || 'zh') !== 'en';
+  useEffect(() => {
+    if (!data) return;
+    const after = () => setAsked(true);
+    window.addEventListener('afterprint', after);
+    const tm = setTimeout(() => window.print(), 600); // 等 QR Code 產生
+    return () => { window.removeEventListener('afterprint', after); clearTimeout(tm); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!data) return <div className="page">{zh ? '沒有要列印的資料' : 'Nothing to print'}</div>;
+  const big = data.kind !== 'bottle';
+  const mark = async () => {
+    await run(() => api('/api/labels/printed', { method: 'POST', body: { kind: data.kind, codes: data.labels.map((x) => labelKey(data.kind, x)) } }), zh ? '已標記為已列印' : 'Marked as printed');
+    nav(-1);
+  };
+  return (
+    <div className="print-root">
+      <style>{`@page { size: ${big ? '100mm 62mm' : '62mm 29mm'}; margin: 0; }
+        .print-root .lbl { border: 0; border-radius: 0; break-after: page; page-break-after: always; margin: 0; }
+        @media screen { .print-root { padding: 16px; background: #eee; min-height: 100vh; } .print-root .sheet { display: flex; flex-wrap: wrap; gap: 8px; } .print-root .lbl { border: 1px dashed #aaa; } }
+        @media print { .print-bar { display: none !important; } body { margin: 0; } }`}</style>
+      <div className="print-bar card row between" style={{ marginBottom: 16, position: 'sticky', top: 8, zIndex: 2 }}>
+        <span>{asked ? (zh ? '標籤印好了嗎？' : 'Did the labels print?') : (zh ? `${data.labels.length} 張標籤` : `${data.labels.length} labels`)}</span>
+        <div className="row">
+          <button className="btn" onClick={() => nav(-1)}>{zh ? '返回' : 'Back'}</button>
+          <button className="btn" onClick={() => window.print()}>{zh ? '再印一次' : 'Print again'}</button>
+          <button className="btn primary" onClick={mark}>{zh ? '已印好，標記為已列印' : 'Printed — mark as done'}</button>
+        </div>
+      </div>
+      <div className="sheet">{data.labels.map((x) => <Label key={labelKey(data.kind, x)} kind={data.kind} x={x} />)}</div>
+    </div>
+  );
+}
