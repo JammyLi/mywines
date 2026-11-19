@@ -19,7 +19,9 @@ export function buildSearch(q) {
   const list = (v) => (Array.isArray(v) ? v : String(v).split(',')).filter(Boolean);
   if (q.type) { const t = list(q.type); where.push(`w.type_code IN (${t.map((_, i) => '@t' + i).join(',')})`); t.forEach((v, i) => (p['t' + i] = v)); }
   if (q.region) { p.region = q.region; where.push('w.region = @region'); }
+  if (q.cellar) { p.cellar = Number(q.cellar); where.push('ce.id = @cellar'); }
   if (q.locker) { p.locker = Number(q.locker); where.push('l.id = @locker'); }
+  if (q.rack) { p.rack = Number(q.rack); where.push('k.id = @rack'); }
   if (q.merchant) { p.merchant = Number(q.merchant); where.push('lot.merchant_id = @merchant'); }
   if (q.vmin || q.vmax) {
     const nv = q.nv === '1' ? " OR w.vintage = 'NV'" : '';

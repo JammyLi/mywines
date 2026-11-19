@@ -8,7 +8,9 @@ import { ntd, num, qs } from '../api.js';
 import { useT } from '../i18n.jsx';
 import Icon from '../icons.jsx';
 
-const KEYS = ['q', 'view', 'type', 'region', 'locker', 'merchant', 'vmin', 'vmax', 'pmin', 'pmax', 'stale', 'uncertain', 'nocost', 'sort', 'page'];
+const sep = (s) => (s ? s.split(',').join(', ') : '—');
+
+const KEYS = ['q', 'view', 'type', 'region', 'cellar', 'locker', 'rack', 'merchant', 'vmin', 'vmax', 'pmin', 'pmax', 'stale', 'uncertain', 'nocost', 'sort', 'page'];
 
 export default function Search() {
   const t = useT();
@@ -37,7 +39,7 @@ export default function Search() {
   const query = Object.fromEntries(Object.entries(f).filter(([k, v]) => v && !['view', 'sort', 'page'].includes(k)));
   const stale = (d) => !d || (data && d < data.staleBefore);
   const pages = data ? Math.max(1, Math.ceil(data.totals.rows / data.size)) : 1;
-  const nf = ['type', 'region', 'locker', 'merchant', 'vmin', 'vmax', 'pmin', 'pmax', 'stale', 'uncertain', 'nocost'].filter((k) => f[k]).length;
+  const nf = ['type', 'region', 'cellar', 'locker', 'rack', 'merchant', 'vmin', 'vmax', 'pmin', 'pmax', 'stale', 'uncertain', 'nocost'].filter((k) => f[k]).length;
 
   return (
     <div className="page">
@@ -60,7 +62,9 @@ export default function Search() {
             <input className="input" inputMode="numeric" defaultValue={f.pmin} key={'c' + f.pmin} onBlur={(e) => set({ pmin: e.target.value })} aria-label="min" />–
             <input className="input" inputMode="numeric" defaultValue={f.pmax} key={'d' + f.pmax} onBlur={(e) => set({ pmax: e.target.value })} aria-label="max" /></div></div>
           <label className="f">{t('region')}<select className="input" value={f.region} onChange={(e) => set({ region: e.target.value })}><option value="">{t('all')}</option>{opts?.regions.filter((r) => keep('regions', 'region', r, f.region)).map((r) => <option key={r} value={r}>{r}{fc ? `（${cnt('regions', 'region', r)}）` : ''}</option>)}</select></label>
-          <label className="f">{t('locker')}<select className="input" value={f.locker} onChange={(e) => set({ locker: e.target.value })}><option value="">{t('all')}</option>{opts?.lockers.filter((l) => keep('lockers', 'id', l.id, f.locker)).map((l) => <option key={l.id} value={l.id}>{l.cellar} › {l.code}{fc ? `（${cnt('lockers', 'id', l.id)}）` : ''}</option>)}</select></label>
+          <label className="f">{zh ? '酒窖' : 'Cellar'}<select className="input" value={f.cellar} onChange={(e) => set({ cellar: e.target.value, locker: '', rack: '' })}><option value="">{t('all')}</option>{opts?.cellars.filter((c) => keep('cellars', 'id', c.id, f.cellar)).map((c) => <option key={c.id} value={c.id}>{c.name}{fc ? `（${cnt('cellars', 'id', c.id)}）` : ''}</option>)}</select></label>
+          <label className="f">{t('locker')}<select className="input" value={f.locker} onChange={(e) => set({ locker: e.target.value, rack: '' })}><option value="">{t('all')}</option>{opts?.lockers.filter((l) => (!f.cellar || String(l.cellar_id) === f.cellar) && keep('lockers', 'id', l.id, f.locker)).map((l) => <option key={l.id} value={l.id}>{f.cellar ? l.code : `${l.cellar} › ${l.code}`}{fc ? `（${cnt('lockers', 'id', l.id)}）` : ''}</option>)}</select></label>
+          <label className="f">{zh ? '架子' : 'Rack'}<select className="input" value={f.rack} onChange={(e) => set({ rack: e.target.value })}><option value="">{t('all')}</option>{opts?.racks.filter((k) => (!f.cellar || String(k.cellar_id) === f.cellar) && (!f.locker || String(k.locker_id) === f.locker) && keep('racks', 'id', k.id, f.rack)).map((k) => <option key={k.id} value={k.id}>{f.locker ? k.code : `${k.locker} › ${k.code}`}{fc ? `（${cnt('racks', 'id', k.id)}）` : ''}</option>)}</select></label>
           <label className="f">{t('merchant')}<select className="input" value={f.merchant} onChange={(e) => set({ merchant: e.target.value })}><option value="">{t('all')}</option>{opts?.merchants.filter((m) => keep('merchants', 'id', m.id, f.merchant)).map((m) => <option key={m.id} value={m.id}>{m.name}{fc ? `（${cnt('merchants', 'id', m.id)}）` : ''}</option>)}</select></label>
           <div className="fgroup">
             <label className="check"><input type="checkbox" checked={!!f.stale} onChange={(e) => set({ stale: e.target.checked ? '1' : '' })} />{t('stalePrices')}</label>
@@ -74,7 +78,7 @@ export default function Search() {
             {data && <div className="muted" aria-live="polite">{zh ? `${num(data.totals.wines)} 款 · ${num(data.totals.cases)} 箱 · ${num(data.totals.bottles)} 瓶 · 市值 ${ntd(data.totals.value)}` : `${num(data.totals.wines)} wines · ${num(data.totals.cases)} cases · ${num(data.totals.bottles)} bottles · ${ntd(data.totals.value)}`}</div>}
             <select className="input" style={{ width: 'auto' }} value={f.sort} onChange={(e) => set({ sort: e.target.value })} aria-label="sort">
               {view === 'wine' ? <><option value="">{zh ? '依酒莊' : 'By winery'}</option><option value="price">{zh ? '市場價格高→低' : 'Price high→low'}</option><option value="qty">{zh ? '瓶數多→少' : 'Most bottles'}</option><option value="vintage">{t('vintage')}</option><option value="date">{zh ? '價格最舊' : 'Oldest price'}</option></>
-                : <><option value="">{t('name')}</option><option value="case">{t('caseNo')}</option><option value="locker">{t('locker')}</option></>}
+                : <><option value="">{t('name')}</option><option value="case">{t('caseNo')}</option><option value="locker">{zh ? '位置（酒窖 › 分儲 › 架子）' : 'Location'}</option></>}
             </select>
           </div>
           {data && data.rows.length > 0 && (
@@ -93,31 +97,33 @@ export default function Search() {
           {data && data.rows.length > 0 && (view === 'wine' ? (
             <>
               <div className="tbl-wrap desk" style={{ opacity: loading ? 0.6 : 1 }}><table className="tbl">
-                <thead><tr><th>{t('winery')} / {t('name')}</th><th>{t('vintage')}</th><th>{t('type')}</th><th>{t('region')}</th><th className="num">{t('qty')}</th><th>{t('locker')}</th><th className="num">{t('market')}</th><th>{t('priceDate')}</th></tr></thead>
+                <thead><tr><th>{t('winery')} / {t('name')}</th><th>{t('vintage')}</th><th>{t('type')}</th><th>{t('region')}</th><th className="num">{t('qty')}</th><th>{zh ? '酒窖' : 'Cellar'}</th><th>{t('locker')}</th><th>{zh ? '架子' : 'Rack'}</th><th className="num">{t('market')}</th><th>{t('priceDate')}</th></tr></thead>
                 <tbody>{data.rows.map((r) => (
                   <tr key={r.wine_no}>
                     <td><Link to={'/wines/' + r.wine_no}>{r.name}</Link><div className="sub">{r.winery} · {r.wine_no}</div></td>
                     <td>{r.vintage}</td><td style={{ whiteSpace: 'nowrap' }}>{zh ? r.type_zh : r.type_en}</td><td>{r.region}</td>
                     <td className="num">{r.qty}<div className="sub">{r.case_count} {zh ? '箱' : 'cs'}</div></td>
-                    <td>{r.lockers}{r.uncertain ? <> <span className="tag warn">?</span></> : null}</td>
+                    <td>{sep(r.cellars)}</td>
+                    <td>{sep(r.lockers)}{r.uncertain ? <> <span className="tag warn">?</span></> : null}</td>
+                    <td>{sep(r.racks)}</td>
                     <td className="num">{ntd(r.price)}</td>
                     <td>{stale(r.price_date) ? <span className="tag warn">{r.price_date || (zh ? '無' : 'none')}</span> : r.price_date}</td>
                   </tr>))}</tbody></table></div>
               <div className="mcards">{data.rows.map((r) => (
                 <Link to={'/wines/' + r.wine_no} className="wcard" key={r.wine_no}>
                   <b>{r.name}</b><span className="muted small">{r.winery} · {r.vintage} · {zh ? r.type_zh : r.type_en}</span>
-                  <div className="row between"><span>{r.qty} {zh ? '瓶' : 'btl'} · {r.lockers}</span><b>{ntd(r.price)}</b></div>
+                  <div className="row between"><span>{r.qty} {zh ? '瓶' : 'btl'} · {sep(r.cellars)} › {sep(r.lockers)}</span><b>{ntd(r.price)}</b></div>
                   {stale(r.price_date) && <span className="tag warn" style={{ alignSelf: 'flex-start' }}>{zh ? '價格待更新' : 'Price outdated'}</span>}
                 </Link>))}</div>
             </>
           ) : (
             <>
               <div className="tbl-wrap desk" style={{ opacity: loading ? 0.6 : 1 }}><table className="tbl">
-                <thead><tr><th>{t('caseNo')}</th><th>{t('location')}</th><th>{t('name')}</th><th>{t('vintage')}</th><th className="num">{t('qty')}</th><th>{t('merchant')}</th><th className="num">{t('cost')}</th><th className="num">{t('market')}</th></tr></thead>
+                <thead><tr><th>{t('caseNo')}</th><th>{zh ? '酒窖' : 'Cellar'}</th><th>{t('locker')}</th><th>{zh ? '架子' : 'Rack'}</th><th>{t('name')}</th><th>{t('vintage')}</th><th className="num">{t('qty')}</th><th>{t('merchant')}</th><th className="num">{t('cost')}</th><th className="num">{t('market')}</th></tr></thead>
                 <tbody>{data.rows.map((r, i) => (
                   <tr key={i}>
                     <td>{r.case_no === '散瓶' ? <span className="tag">{t('loose')}</span> : <Link to={'/cases/' + encodeURIComponent(r.case_no)}>{r.case_no}</Link>}</td>
-                    <td>{r.cellar} › {r.locker} › {r.rack}{r.uncertain ? <> <span className="tag warn">{t('uncertain')}</span></> : null}</td>
+                    <td>{r.cellar}</td><td>{r.locker}{r.uncertain ? <> <span className="tag warn">{t('uncertain')}</span></> : null}</td><td>{r.rack}</td>
                     <td><Link to={'/wines/' + r.wine_no}>{r.name}</Link></td><td>{r.vintage}</td><td className="num">{r.qty}</td><td>{r.merchant}</td>
                     <td className="num">{ntd(r.cost)}</td><td className="num">{ntd(r.price)}</td>
                   </tr>))}</tbody></table></div>

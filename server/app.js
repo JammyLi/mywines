@@ -126,8 +126,11 @@ export function createApp(db, opts = {}) {
   app.get('/api/filters', (_req, res) => {
     res.json({
       types: db.prepare('SELECT code, zh, en, mapped FROM wine_types ORDER BY mapped DESC, rowid').all(),
-      lockers: db.prepare('SELECT l.id, c.name cellar, l.code FROM lockers l JOIN cellars c ON c.id = l.cellar_id').all()
+      cellars: db.prepare('SELECT id, name FROM cellars ORDER BY name').all(),
+      lockers: db.prepare('SELECT l.id, l.cellar_id, c.name cellar, l.code FROM lockers l JOIN cellars c ON c.id = l.cellar_id').all()
         .sort((a, b) => a.cellar.localeCompare(b.cellar) || a.code.localeCompare(b.code, 'zh-Hant', { numeric: true })),
+      racks: db.prepare('SELECT k.id, k.locker_id, l.cellar_id, l.code locker, k.code FROM racks k JOIN lockers l ON l.id = k.locker_id').all()
+        .sort((a, b) => a.locker.localeCompare(b.locker, 'zh-Hant', { numeric: true }) || a.code.localeCompare(b.code, 'zh-Hant', { numeric: true })),
       merchants: db.prepare('SELECT id, name FROM merchants ORDER BY name').all(),
       regions: db.prepare("SELECT DISTINCT region FROM wines WHERE region <> '' ORDER BY region").all().map((r) => r.region),
       wineries: db.prepare("SELECT DISTINCT winery FROM wines WHERE winery <> '' ORDER BY winery").all().map((r) => r.winery),
@@ -143,7 +146,10 @@ export function createApp(db, opts = {}) {
     res.json({
       types: run(['type'], 'SELECT w.type_code code, COUNT(*) n @FROM GROUP BY w.type_code'),
       regions: run(['region'], "SELECT w.region region, COUNT(*) n @FROM AND COALESCE(w.region, '') <> '' GROUP BY w.region ORDER BY w.region"),
-      lockers: run(['locker'], 'SELECT l.id id, COUNT(*) n @FROM GROUP BY l.id'),
+      // 酒窖 › 分儲空間 › 架子 連動：上層的選項不受下層篩選影響
+      cellars: run(['cellar', 'locker', 'rack'], 'SELECT ce.id id, COUNT(*) n @FROM GROUP BY ce.id'),
+      lockers: run(['locker', 'rack'], 'SELECT l.id id, COUNT(*) n @FROM GROUP BY l.id'),
+      racks: run(['rack'], 'SELECT k.id id, COUNT(*) n @FROM GROUP BY k.id'),
       merchants: run(['merchant'], 'SELECT lot.merchant_id id, COUNT(*) n @FROM AND lot.merchant_id IS NOT NULL GROUP BY lot.merchant_id'),
     });
   });
@@ -157,7 +163,7 @@ export function createApp(db, opts = {}) {
     const totals = db.prepare(`SELECT COUNT(DISTINCT w.id) wines, COUNT(DISTINCT c.id) cases, COUNT(*) bottles, COALESCE(SUM(${latestPrice}),0) value ${from}`).get(p);
     let rows;
     if (q.view === 'case') {
-      const order = { case: 'c.case_no', locker: 'l.code, c.case_no', name: 'w.name' }[q.sort] || 'w.name, c.case_no';
+      const order = { case: 'c.case_no', locker: 'ce.name, l.code, k.code, c.case_no', name: 'w.name' }[q.sort] || 'w.name, c.case_no';
       rows = db.prepare(`SELECT COALESCE(c.case_no, '散瓶') case_no, c.location_uncertain uncertain, ce.name cellar, l.code locker, k.code rack,
         w.wine_no, w.name, w.vintage, COUNT(*) qty, m.name merchant, lot.purchase_price cost, ${latestPrice} price ${from}
         GROUP BY COALESCE(c.id, 'r' || k.id), w.id, lot.id ORDER BY ${order} LIMIT @limit OFFSET @offset`).all(p);
@@ -165,7 +171,7 @@ export function createApp(db, opts = {}) {
     } else {
       const order = { price: 'price DESC', qty: 'qty DESC', vintage: 'w.vintage', date: 'price_date' }[q.sort] || 'w.winery, w.name, w.vintage';
       rows = db.prepare(`SELECT w.wine_no, w.winery, w.name, w.vintage, w.region, w.volume_ml, t.zh type_zh, t.en type_en, COUNT(*) qty,
-        COUNT(DISTINCT c.id) case_count, GROUP_CONCAT(DISTINCT l.code) lockers, MAX(c.location_uncertain) uncertain,
+        COUNT(DISTINCT c.id) case_count, GROUP_CONCAT(DISTINCT ce.name) cellars, GROUP_CONCAT(DISTINCT l.code) lockers, GROUP_CONCAT(DISTINCT k.code) racks, MAX(c.location_uncertain) uncertain,
         ${latestPrice} price, ${latestDate} price_date ${from} GROUP BY w.id ORDER BY ${order} LIMIT @limit OFFSET @offset`).all(p);
       totals.rows = totals.wines;
     }
