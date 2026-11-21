@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { receive } from '../handoff.js';
 import { run } from '../ui.jsx';
-import { Label, labelKey } from './Labels.jsx';
+import { Label, labelKey, DEF_SIZE } from './Labels.jsx';
 
 export default function PrintLabels() {
   const [sp] = useSearchParams();
@@ -20,13 +20,14 @@ export default function PrintLabels() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <div className="page">{zh ? '沒有要列印的資料' : 'Nothing to print'}</div>;
   const big = data.kind !== 'bottle';
+  const sz = data.size || (big ? DEF_SIZE.big : DEF_SIZE.bottle);
   const mark = async () => {
     await run(() => api('/api/labels/printed', { method: 'POST', body: { kind: data.kind, codes: data.labels.map((x) => labelKey(data.kind, x)) } }), zh ? '已標記為已列印' : 'Marked as printed');
     nav(-1);
   };
   return (
     <div className="print-root">
-      <style>{`@page { size: ${big ? '100mm 62mm' : '62mm 29mm'}; margin: 0; }
+      <style>{`@page { size: ${sz.w}mm ${sz.h}mm; margin: 0; }
         .print-root .lbl { border: 0; border-radius: 0; break-after: page; page-break-after: always; margin: 0; }
         @media screen { .print-root { padding: 16px; background: #eee; min-height: 100vh; } .print-root .sheet { display: flex; flex-wrap: wrap; gap: 8px; } .print-root .lbl { border: 1px dashed #aaa; } }
         @media print { .print-bar { display: none !important; } body { margin: 0; } }`}</style>
@@ -38,7 +39,7 @@ export default function PrintLabels() {
           <button className="btn primary" onClick={mark}>{zh ? '已印好，標記為已列印' : 'Printed — mark as done'}</button>
         </div>
       </div>
-      <div className="sheet">{data.labels.map((x) => <Label key={labelKey(data.kind, x)} kind={data.kind} x={x} />)}</div>
+      <div className="sheet">{data.labels.map((x) => <Label key={labelKey(data.kind, x)} kind={data.kind} x={x} size={sz} />)}</div>
     </div>
   );
 }

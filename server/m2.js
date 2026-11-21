@@ -215,6 +215,7 @@ export function addPrice(db, wine, b, user, extra = {}) {
 
 export const SETTINGS_DEFAULTS = {
   company: { name_zh: '示範酒業有限公司', name_en: 'Demo Wine Co., Ltd.', tax_id: '12345678', phone: '02-2345-6789', address: '台北市信義區示範路 1 號', email: 'info@example.com', tax_rate: '5', logo: '' },
+  label: { printer: 'TSC TTP-247', bottle_size: '62x29', big_size: '100x62' },
   price: { site: 'Wine-Searcher', currency: 'TWD', url_template: 'https://www.wine-searcher.com/find/{name}+{vintage}/1/taiwan', stale_days: '30', per_hour: '100', per_day: '300', min_wait: '10', max_wait: '20', order_markup: '0' },
 };
 export function readSettings(db) {
@@ -619,10 +620,11 @@ export function mountM2(app, db) {
     const up = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
     for (const k of Object.keys(DEFAULTS[g])) if (k in req.body && k !== 'logo') {
       const v = clean(req.body[k]);
+      if (g === 'label' && k.endsWith('_size') && !/^\d{2,3}x\d{2,3}$/.test(v)) bad('標籤尺寸格式不正確（例如 50x30）');
       if (g === 'price' && k === 'url_template' && v && !/^https?:\/\//.test(v)) bad('網址需以 http:// 或 https:// 開頭');
       if (String(cur[k] ?? '') !== v) { changes[k] = [cur[k], v]; up.run(`${g}.${k}`, v); }
     }
-    if (Object.keys(changes).length) audit(db, { user: U(req), category: '設定', action: g === 'company' ? '修改公司資料' : '修改查價設定', obj_type: 'settings', obj_id: g, obj_label: g === 'company' ? '公司資料' : '查價設定', changes });
+    if (Object.keys(changes).length) audit(db, { user: U(req), category: '設定', action: { company: '修改公司資料', price: '修改查價設定', label: '修改標籤設定' }[g], obj_type: 'settings', obj_id: g, obj_label: { company: '公司資料', price: '查價設定', label: '標籤設定' }[g], changes });
     return getSettings();
   })));
   app.post('/api/settings/logo', upload.single('logo'), h((req) => tx(() => {

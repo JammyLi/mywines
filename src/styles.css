@@ -171,17 +171,20 @@ textarea.input { min-height: 80px; padding: 10px 12px; resize: vertical; }
 .photo .acts button { border: 0; background: rgba(255,255,255,.9); border-radius: 6px; font-size: 12px; padding: 3px 6px; cursor: pointer; }
 .photo .main { position: absolute; top: 6px; left: 6px; }
 .label-preview { display: flex; flex-wrap: wrap; gap: 12px; }
-.lbl { background: #fff; border: 1px solid var(--line-strong); border-radius: 4px; color: #000; display: flex; gap: 2.5mm; padding: 2mm 2.5mm; overflow: hidden; font-family: Inter, 'Noto Sans TC', sans-serif; }
+.lbl { box-sizing: border-box; flex-shrink: 0; background: #fff; border: 1px solid var(--line-strong); border-radius: 4px; color: #000; display: flex; gap: 2.5mm; padding: 2mm 2.5mm; overflow: hidden; font-family: Inter, 'Noto Sans TC', sans-serif; }
 .lbl.bottle { width: 62mm; height: 29mm; }
 .lbl.big { width: 100mm; height: 62mm; padding: 4mm; gap: 4mm; }
+.lbl.tall { flex-direction: column; align-items: center; }
+.lbl.tall .t { width: 100%; flex: 1 1 auto; }
+.lbl.big .no { white-space: nowrap; }
 .lbl .t { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.lbl .no { font-weight: 700; font-size: 11pt; font-variant-numeric: tabular-nums; }
-.lbl.big .no { font-size: 20pt; }
-.lbl .nm { font-size: 7.5pt; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.lbl.big .nm { font-size: 11pt; -webkit-line-clamp: 3; }
-.lbl .sm { font-size: 7pt; color: #333; }
-.lbl.big .sm { font-size: 9pt; }
-.lbl .hd { font-size: 8pt; letter-spacing: .04em; color: #444; }
+.lbl .no { font-weight: 700; font-size: calc(11pt * var(--s, 1)); font-variant-numeric: tabular-nums; }
+.lbl.big .no { font-size: calc(20pt * var(--s, 1)); }
+.lbl .nm { font-size: calc(7.5pt * var(--s, 1)); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.lbl.big .nm { font-size: calc(11pt * var(--s, 1)); -webkit-line-clamp: 3; }
+.lbl .sm { font-size: calc(7pt * var(--s, 1)); color: #333; }
+.lbl.big .sm { font-size: calc(9pt * var(--s, 1)); }
+.lbl .hd { font-size: calc(8pt * var(--s, 1)); letter-spacing: .04em; color: #444; }
 .cols-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 2px 12px; }
 .mini { min-height: 32px; padding: 0 10px; font-size: 13px; }
 .status-new { color: var(--ok); } .status-update { color: var(--wine); } .status-error { color: var(--err); } .status-same { color: var(--ink-3); }
