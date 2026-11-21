@@ -324,3 +324,62 @@ export function commitImport(db, parsed, { merges = parsed.merges, user, filenam
   run();
   return { batchId, ...stats };
 }
+
+// 匯入範本：欄位名稱與 HEADER_ALIASES 第一個名稱一致，附範例與說明
+const TEMPLATE_COLS = [
+  ['酒窖', '酒窖名稱。空白＝「未指定」', 10, '永興'],
+  ['位置', '分儲空間代碼，例如 A31。代碼後加「?」代表位置待確認', 10, 'A31'],
+  ['架子', '架子名稱。空白＝放在該分儲空間的「未指定」架子', 10, '上層'],
+  ['編號', '箱號。整箱入庫時填；散瓶留空', 12, 'C-0001'],
+  ['國家', '', 10, 'France'],
+  ['酒莊', '必填', 22, 'Domaine Leroy'],
+  ['品名', '必填', 36, 'Bourgogne Aligoté'],
+  ['產區', '例如 Burgundy、Champagne', 14, 'Burgundy'],
+  ['年份', '四位數年份，無年份填 NV', 8, 2018],
+  ['種類', '種類代碼，見「種類代碼」工作表', 8, 'W'],
+  ['瓶數', '必填，整數', 8, 6],
+  ['容量', 'ml，空白＝750；也可寫 1.5L', 8, 750],
+  ['酒商', '向哪家酒商採購', 16, '示範酒商'],
+  ['採購價格', '每瓶 NT$', 12, 3200],
+  ['國際均價', '每瓶市場價格 NT$', 12, 4500],
+  ['查價日期', '市場價格的日期 YYYY-MM-DD', 12, '2026-11-01'],
+  ['建議售價', '每瓶 NT$', 12, 5800],
+  ['備註', '任何補充說明', 20, ''],
+];
+
+export async function importTemplate(types) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('庫存');
+  const head = ws.addRow(TEMPLATE_COLS.map((c) => c[0]));
+  head.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  head.eachCell((c, i) => {
+    const req = /必填/.test(TEMPLATE_COLS[i - 1][1]);
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: req ? 'FF7B2342' : 'FF8A7F84' } };
+    c.note = TEMPLATE_COLS[i - 1][1] || undefined;
+  });
+  ws.addRow(TEMPLATE_COLS.map((c) => c[3]));
+  ws.addRow(['永興', 'A32', '', 'C-0002', 'France', 'Krug', 'Grande Cuvée 171ème Édition', 'Champagne', 'NV', 'CP', 6, 750, '示範酒商', 6800, 8200, '2026-11-01', 9800, '']);
+  ws.addRow(['永興', 'B12?', '', '', 'Italy', 'Gaja', 'Barbaresco', 'Piedmont', 2019, 'R', 2, '1.5L', '', '', '', '', '', '散瓶，位置待確認']);
+  TEMPLATE_COLS.forEach((c, i) => { ws.getColumn(i + 1).width = c[2] + 2; });
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+  const info = wb.addWorksheet('說明');
+  info.addRow(['庫存匯入範本']).font = { bold: true, size: 14 };
+  for (const line of [
+    '1. 在「庫存」工作表填資料：第一列是欄位名稱，請不要修改；深紅色欄位為必填（酒莊、品名、瓶數）。',
+    '2. 範例的 3 列請刪除或改成你的資料。一列＝同一款酒、同一個位置的一批瓶數。',
+    '3. 到系統「匯入」把檔案拖進去，先預覽問題、確認後才會寫入。',
+    '4. 同一款酒（酒莊＋品名＋年份＋容量相同）會合併成一個酒款，不會重複建立。',
+    '5. 不需要的欄位可以整欄刪除；欄位順序可以調整。',
+    '',
+  ]) info.addRow([line]);
+  const h2 = info.addRow(['欄位', '說明', '範例']); h2.font = { bold: true };
+  for (const c of TEMPLATE_COLS) info.addRow([c[0], c[1], c[3]]);
+  info.getColumn(1).width = 12; info.getColumn(2).width = 60; info.getColumn(3).width = 30;
+
+  const tw = wb.addWorksheet('種類代碼');
+  tw.addRow(['代碼', '中文', 'English']).font = { bold: true };
+  for (const t of types) tw.addRow([t.code, t.zh, t.en]);
+  tw.getColumn(1).width = 10; tw.getColumn(2).width = 16; tw.getColumn(3).width = 20;
+  return wb.xlsx.writeBuffer();
+}

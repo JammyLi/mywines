@@ -82,3 +82,23 @@ test('庫存搜尋：酒窖 › 分儲空間 › 架子 篩選與連動', async 
     assert.ok(f.cellars.length && f.racks[0].locker_id);
   } finally { server.close(); }
 });
+
+test('匯入範本：下載後可直接匯入', async () => {
+  const db = openDb(path.join(DATA, 'tpl.db'));
+  const server = createApp(db).listen(0);
+  const U = `http://localhost:${server.address().port}`;
+  const cookie = (await fetch(U + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login: 'jammy', password: '123456' }) })).headers.get('set-cookie').split(';')[0];
+  try {
+    const r = await fetch(U + '/api/import/template', { headers: { cookie } });
+    assert.equal(r.status, 200);
+    const fd = new FormData(); fd.append('file', new Blob([await r.arrayBuffer()]), 't.xlsx');
+    const pv = await (await fetch(U + '/api/import/preview', { method: 'POST', headers: { cookie }, body: fd })).json();
+    assert.ok(pv.token, JSON.stringify(pv).slice(0, 200));
+    await fetch(U + '/api/import/commit', { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ token: pv.token }) });
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM wines').get().c, 3);
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM bottles').get().c, 14);
+    assert.equal(db.prepare("SELECT COUNT(*) c FROM racks WHERE code = '上層'").get().c, 1);
+    assert.equal(db.prepare("SELECT volume_ml v FROM wines WHERE winery = 'Gaja'").get().v, 1500);
+    assert.equal(db.prepare("SELECT type_code t FROM wines WHERE winery = 'Krug'").get().t, 'CP');
+  } finally { server.close(); }
+});

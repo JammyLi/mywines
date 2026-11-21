@@ -1,6 +1,6 @@
 {
   "name": "mywines",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "酒類庫存管理系統（第一期：基礎）",
   "type": "module",

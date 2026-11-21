@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 import { ROOT, audit } from './db.js';
-import { parseWorkbook, summarize, commitImport, norm } from './importer.js';
+import { parseWorkbook, summarize, commitImport, norm, importTemplate } from './importer.js';
 import { mountM2, readSettings, PHOTO_DIR } from './m2.js';
 import { mountStockout } from './stockout.js';
 import { mountAdmin } from './admin.js';
@@ -270,6 +270,12 @@ export function createApp(db, opts = {}) {
   });
 
   // ---------- 匯入 ----------
+  app.get('/api/import/template', async (_req, res) => {
+    const buf = await importTemplate(db.prepare('SELECT code, zh, en FROM wine_types WHERE mapped = 1 ORDER BY rowid').all());
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent('庫存匯入範本.xlsx')}`);
+    res.send(Buffer.from(buf));
+  });
   app.post('/api/import/preview', upload.single('file'), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: '請選擇 Excel 檔' });
