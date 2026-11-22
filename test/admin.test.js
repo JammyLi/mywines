@@ -102,3 +102,27 @@ test('匯入範本：下載後可直接匯入', async () => {
     assert.equal(db.prepare("SELECT type_code t FROM wines WHERE winery = 'Krug'").get().t, 'CP');
   } finally { server.close(); }
 });
+
+test('匯入：備註欄合併、品名補酒莊、重新匯入不重複', async () => {
+  const ExcelJS = (await import('exceljs')).default;
+  const { parseWorkbook, commitImport } = await import('../server/importer.js');
+  const db = openDb(path.join(DATA, 'note.db'));
+  const make = async (rows) => {
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('a');
+    ws.addRow(['酒莊', '品名', '年份', '瓶數', '備註', '備註1', '備註 2']);
+    rows.forEach((r) => ws.addRow(r));
+    return Buffer.from(await wb.xlsx.writeBuffer());
+  };
+  let p = await parseWorkbook(await make([['Leroy', 'Bourgogne Aligoté', 2018, 6, '禮盒', '', '客戶寄放'], ['Krug', 'Krug Grande Cuvée', 'NV', 3, '', '', '']]));
+  commitImport(db, p, { user: 'jammy', filename: 'a.xlsx' });
+  const w = db.prepare("SELECT name, notes FROM wines WHERE winery = 'Leroy'").get();
+  assert.equal(w.name, 'Leroy Bourgogne Aligoté');
+  assert.equal(w.notes, '禮盒 / 客戶寄放');
+  assert.equal(db.prepare("SELECT name FROM wines WHERE winery = 'Krug'").get().name, 'Krug Grande Cuvée', '已含酒莊不重複加');
+  // 舊資料（品名沒有酒莊）也能對上
+  db.prepare("UPDATE wines SET name = 'Bourgogne Aligoté' WHERE winery = 'Leroy'").run();
+  p = await parseWorkbook(await make([['Leroy', 'Bourgogne Aligoté', 2018, 2, '新到', '', '']]));
+  commitImport(db, p, { user: 'jammy', filename: 'b.xlsx' });
+  assert.equal(db.prepare("SELECT COUNT(*) c FROM wines WHERE winery = 'Leroy'").get().c, 1);
+  assert.equal(db.prepare("SELECT notes FROM wines WHERE winery = 'Leroy'").get().notes, '禮盒 / 客戶寄放\n新到');
+});

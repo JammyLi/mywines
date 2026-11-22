@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 import { ROOT, audit } from './db.js';
-import { parseWorkbook, summarize, commitImport, norm, importTemplate } from './importer.js';
+import { parseWorkbook, summarize, commitImport, norm, importTemplate, rekeyWines } from './importer.js';
 import { mountM2, readSettings, PHOTO_DIR } from './m2.js';
 import { mountStockout } from './stockout.js';
 import { mountAdmin } from './admin.js';
@@ -24,6 +24,7 @@ function parseCookies(h = '') {
 
 export function createApp(db, opts = {}) {
   const app = express();
+  rekeyWines(db);
   app.use(express.json({ limit: '2mb' }));
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
   const pendingImports = new Map();

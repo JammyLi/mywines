@@ -76,7 +76,7 @@ export default function Import() {
             <div className="row between"><h2 style={{ margin: 0 }}>{zh ? '欄位對應' : 'Column mapping'}</h2>
               <a className="btn" href="/api/import/template" download><Icon n="import" />{zh ? '下載匯入範本' : 'Download template'}</a></div>
             <div className="muted" style={{ marginTop: 8 }}>{zh ? '第一次匯入建議先下載範本，照欄位填好再上傳（範本裡有範例、欄位說明與種類代碼）。必填：酒莊、品名、瓶數。' : 'First time? Download the template, fill it in and upload it (it includes examples, column notes and type codes). Required: 酒莊, 品名, 瓶數.'}</div>
-            <div className="muted" style={{ marginTop: 6 }}>{zh ? '酒窖 = 酒窖（Cellar）、位置 = 分儲空間（Locker）、架子 = 架子（Rack）、編號 = 箱號（Case）。沒有填架子時，酒箱放在該分儲空間的「未指定」架子。位置含「?」會標記為位置待確認。' : '酒窖 = Cellar, 位置 = Locker, 架子 = Rack, 編號 = Case. Without a rack, cases go to the locker\'s "未指定" rack. A "?" in 位置 marks the case "location to confirm".'}</div>
+            <div className="muted" style={{ marginTop: 6 }}>{zh ? '酒窖 = 酒窖（Cellar）、位置 = 分儲空間（Locker）、架子 = 架子（Rack）、編號 = 箱號（Case）。沒有填架子時，酒箱放在該分儲空間的「未指定」架子。位置含「?」會標記為位置待確認。品名前面沒有酒莊時會自動補上；所有「備註」欄（備註、備註1…）合併成一個備註。' : '酒窖 = Cellar, 位置 = Locker, 架子 = Rack, 編號 = Case. Without a rack, cases go to the locker\'s "未指定" rack. A "?" in 位置 marks the case "location to confirm". The winery is added in front of 品名 when missing; all 備註 columns are merged into one note.'}</div>
           </div>
         </>
       )}

@@ -219,8 +219,33 @@ export function searchKey(x) {
   return [x.wine_no, x.winery, x.name, x.region, x.country, x.vintage].map(norm).join(' ');
 }
 
+// 品名前面沒有酒莊名稱時補上：品名 = 酒莊 品名
+export function withWinery(winery, name) {
+  const w = clean(winery), n = clean(name);
+  if (!w) return n;
+  if (!n) return w;
+  return norm(n).startsWith(norm(w)) ? n : `${w} ${n}`;
+}
+
+// 比對鍵：品名開頭的酒莊名稱不計，所以「Leroy Bourgogne」和「Bourgogne」（酒莊 Leroy）視為同一款
 export function wineKey(x) {
-  return [norm(x.winery), norm(x.name), x.vintage, x.volume].join('|');
+  const w = norm(x.winery);
+  let n = norm(x.name);
+  if (w && n.startsWith(w) && n.length > w.length) n = n.slice(w.length);
+  return [w, n, x.vintage, x.volume].join('|');
+}
+
+// 比對鍵規則改變後，重算既有酒款（只更新有變的）
+export function rekeyWines(db) {
+  const up = db.prepare('UPDATE wines SET match_key = ? WHERE id = ?');
+  let n = 0;
+  db.transaction(() => {
+    for (const w of db.prepare('SELECT id, winery, name, vintage, volume_ml, match_key FROM wines').all()) {
+      const k = wineKey({ ...w, volume: w.volume_ml });
+      if (k !== w.match_key) { try { up.run(k, w.id); n++; } catch { /* 重複時保留舊鍵 */ } }
+    }
+  })();
+  return n;
 }
 
 export function summarize(db, parsed, merges = parsed.merges) {
@@ -244,9 +269,11 @@ export function summarize(db, parsed, merges = parsed.merges) {
 }
 
 function applyMerges(x, merges) {
+  const winery = merges.winery?.[x.winery] || x.winery;
   return {
     ...x,
-    winery: merges.winery?.[x.winery] || x.winery,
+    winery,
+    name: withWinery(winery, x.name),
     merchant: merges.merchant?.[x.merchant] || x.merchant,
     region: merges.region?.[x.region] || x.region,
   };
@@ -267,9 +294,10 @@ export function commitImport(db, parsed, { merges = parsed.merges, user, filenam
     merchantIns: db.prepare('INSERT INTO merchants (name) VALUES (?)'),
     type: db.prepare('SELECT code FROM wine_types WHERE code = ?'),
     typeIns: db.prepare("INSERT INTO wine_types (code, zh, en, mapped) VALUES (?, ?, ?, 0)"),
-    wine: db.prepare('SELECT id FROM wines WHERE match_key = ?'),
-    wineIns: db.prepare(`INSERT INTO wines (wine_no, country, winery, name, region, vintage, type_code, volume_ml, suggested_price, match_key, search_key, created_by)
-      VALUES (@wine_no, @country, @winery, @name, @region, @vintage, @type_code, @volume_ml, @suggested_price, @match_key, @search_key, @user)`),
+    wine: db.prepare('SELECT id, notes FROM wines WHERE match_key = ?'),
+    wineIns: db.prepare(`INSERT INTO wines (wine_no, country, winery, name, region, vintage, type_code, volume_ml, suggested_price, notes, match_key, search_key, created_by)
+      VALUES (@wine_no, @country, @winery, @name, @region, @vintage, @type_code, @volume_ml, @suggested_price, @notes, @match_key, @search_key, @user)`),
+    wineNote: db.prepare('UPDATE wines SET notes = ? WHERE id = ?'),
     caseExists: db.prepare('SELECT 1 FROM cases WHERE case_no = ?'),
     caseIns: db.prepare('INSERT INTO cases (case_no, rack_id, capacity, location_uncertain, note) VALUES (?, ?, ?, ?, ?)'),
     lotIns: db.prepare('INSERT INTO lots (wine_id, merchant_id, purchase_price, note) VALUES (?, ?, ?, ?)'),
@@ -293,11 +321,14 @@ export function commitImport(db, parsed, { merges = parsed.merges, user, filenam
       let typeCode = x.type || null;
       if (typeCode && !q.type.get(typeCode)) q.typeIns.run(typeCode, '待對應（' + typeCode + '）', 'Unmapped (' + typeCode + ')');
       const key = wineKey(x);
-      let wineId = q.wine.get(key)?.id;
+      const found = q.wine.get(key);
+      let wineId = found?.id;
+      // 所有「備註」欄合併成一個備註，也寫進酒款的備註（已有相同內容就不重複）
+      if (found && x.note && !(found.notes || '').includes(x.note)) q.wineNote.run(found.notes ? found.notes + '\n' + x.note : x.note, wineId);
       if (!wineId) {
         const wineNo = nextNo(db, 'wine', 'W-', 6);
         wineId = q.wineIns.run({ wine_no: wineNo, country: x.country, winery: x.winery, name: x.name, region: x.region, vintage: x.vintage,
-          type_code: typeCode, volume_ml: x.volume, suggested_price: x.suggested, match_key: key,
+          type_code: typeCode, volume_ml: x.volume, suggested_price: x.suggested, notes: x.note || null, match_key: key,
           search_key: searchKey({ ...x, wine_no: wineNo }), user }).lastInsertRowid;
         stats.wines++;
         audit(db, { user, category: '匯入', action: '新增酒款', obj_type: 'wine', obj_id: wineNo, obj_label: `${x.name} ${x.vintage}`, batch_id: batchId });
@@ -333,7 +364,7 @@ const TEMPLATE_COLS = [
   ['編號', '箱號。整箱入庫時填；散瓶留空', 12, 'C-0001'],
   ['國家', '', 10, 'France'],
   ['酒莊', '必填', 22, 'Domaine Leroy'],
-  ['品名', '必填', 36, 'Bourgogne Aligoté'],
+  ['品名', '必填。前面沒有酒莊名稱時，系統會自動補上（品名＝酒莊 品名）', 36, 'Bourgogne Aligoté'],
   ['產區', '例如 Burgundy、Champagne', 14, 'Burgundy'],
   ['年份', '四位數年份，無年份填 NV', 8, 2018],
   ['種類', '種類代碼，見「種類代碼」工作表', 8, 'W'],
@@ -344,7 +375,7 @@ const TEMPLATE_COLS = [
   ['國際均價', '每瓶市場價格 NT$', 12, 4500],
   ['查價日期', '市場價格的日期 YYYY-MM-DD', 12, '2026-11-01'],
   ['建議售價', '每瓶 NT$', 12, 5800],
-  ['備註', '任何補充說明', 20, ''],
+  ['備註', '任何補充說明。可以有好幾欄（備註、備註1、備註2…），匯入時合併成一個備註，存到酒款與酒箱', 20, ''],
 ];
 
 export async function importTemplate(types) {
