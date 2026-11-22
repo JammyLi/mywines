@@ -20,12 +20,16 @@ export function Toasts() {
 
 export function Modal({ title, onClose, children, footer, wide }) {
   const ref = useRef();
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // 只在開啟時把游標放到第一個欄位一次。onClose 每次重畫都是新函式，
+  // 不能放進相依清單，否則每打一個字游標就跳回第一個欄位。
   useEffect(() => {
-    const k = (e) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', k);
     (ref.current?.querySelector('.modal-body input, .modal-body select, .modal-body textarea') || ref.current)?.focus();
+    const k = (e) => e.key === 'Escape' && closeRef.current?.();
+    window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
+  }, []);
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={'modal' + (wide ? ' wide' : '')} role="dialog" aria-modal="true" aria-label={title} ref={ref} tabIndex={-1}>
