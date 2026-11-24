@@ -23,6 +23,8 @@ function migrate(db) {
   const cols = new Set(db.prepare('PRAGMA table_info(bottles)').all().map((c) => c.name));
   if (!cols.has('out_reason')) db.exec('ALTER TABLE bottles ADD COLUMN out_reason TEXT');
   if (!cols.has('out_at')) db.exec('ALTER TABLE bottles ADD COLUMN out_at TEXT');
+  const cc = new Set(db.prepare('PRAGMA table_info(cellars)').all().map((c) => c.name));
+  if (!cc.has('monthly_rent')) db.exec('ALTER TABLE cellars ADD COLUMN monthly_rent INTEGER');
   // 查價上限：每小時 20 → 100、每天 100 → 300（只更新仍是舊預設值的設定）
   db.prepare("UPDATE settings SET value = '100' WHERE key = 'price.per_hour' AND value = '20'").run();
   db.prepare("UPDATE settings SET value = '300' WHERE key = 'price.per_day' AND value = '100'").run();

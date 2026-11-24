@@ -223,3 +223,9 @@ textarea.input { min-height: 80px; padding: 10px 12px; resize: vertical; }
 .flash.ok { background: var(--ok-bg); color: var(--ok); } .flash.warn { background: var(--warn-bg); color: var(--warn); } .flash.err { background: var(--err-bg); color: var(--err); }
 .bigbtn { min-height: 52px; font-size: 16px; width: 100%; }
 .offline-banner { background: var(--warn-bg); color: var(--warn); padding: 10px 16px; font-size: 14px; }
+
+/* 密碼顯示按鈕 */
+.pw-wrap { position: relative; display: block; }
+.pw-wrap .input { width: 100%; padding-right: 42px; }
+.pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: 0; padding: 6px; color: var(--ink-3, #888); cursor: pointer; border-radius: 6px; display: flex; }
+.pw-eye:hover { color: var(--ink, #222); background: rgba(0,0,0,.05); }

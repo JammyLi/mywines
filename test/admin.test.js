@@ -126,3 +126,32 @@ test('匯入：備註欄合併、品名補酒莊、重新匯入不重複', async
   assert.equal(db.prepare("SELECT COUNT(*) c FROM wines WHERE winery = 'Leroy'").get().c, 1);
   assert.equal(db.prepare("SELECT notes FROM wines WHERE winery = 'Leroy'").get().notes, '禮盒 / 客戶寄放\n新到');
 });
+
+test('酒窖月租、異動紀錄保存期限', async () => {
+  const db = openDb(path.join(DATA, 'ret.db'));
+  const server = createApp(db).listen(0);
+  const U = `http://localhost:${server.address().port}`;
+  const cookie = (await fetch(U + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login: 'jammy', password: '123456' }) })).headers.get('set-cookie').split(';')[0];
+  const call = async (method, url, body) => { const r = await fetch(U + url, { method, headers: { cookie, 'content-type': 'application/json' }, body: body && JSON.stringify(body) }); return { status: r.status, body: await r.json() }; };
+  try {
+    const c = (await call('POST', '/api/cellars', { name: '倉庫B', monthly_rent: '15,000' })).body;
+    assert.equal(db.prepare('SELECT monthly_rent r FROM cellars WHERE id = ?').get(c.id).r, 15000);
+    await call('PUT', '/api/cellars/' + c.id, { monthly_rent: '18000' });
+    assert.equal(db.prepare('SELECT monthly_rent r FROM cellars WHERE id = ?').get(c.id).r, 18000);
+    assert.equal((await call('PUT', '/api/cellars/' + c.id, { monthly_rent: 'abc' })).status, 400);
+    const loc = (await call('GET', '/api/locations')).body.find((x) => x.id === c.id);
+    assert.equal(loc.monthly_rent, 18000);
+
+    const ins = db.prepare("INSERT INTO audit_log (ts, user_login, category, action) VALUES (datetime('now','localtime', ?), 'x', '測試', '舊')");
+    ins.run('-200 days'); ins.run('-400 days'); ins.run('-10 days');
+    const pv = (await call('GET', '/api/admin/logs-retention?months=6')).body;
+    assert.equal(pv.wouldDelete, 2);
+    assert.equal((await call('POST', '/api/admin/logs-retention', { months: '5' })).status, 400);
+    const r = (await call('POST', '/api/admin/logs-retention', { months: '6' })).body;
+    assert.equal(r.deleted, 2);
+    assert.equal(db.prepare("SELECT COUNT(*) c FROM audit_log WHERE action = '舊'").get().c, 1);
+    assert.ok(db.prepare("SELECT 1 FROM audit_log WHERE action = '自動刪除舊異動紀錄'").get());
+    assert.throws(() => db.prepare('DELETE FROM audit_log').run(), /read-only/);
+    assert.equal((await call('GET', '/api/admin/logs-retention')).body.months, 6);
+  } finally { server.close(); }
+});

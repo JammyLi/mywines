@@ -2,6 +2,7 @@ import { useContext, useState } from 'react';
 import { api } from '../api.js';
 import { LangCtx, useT } from '../i18n.jsx';
 import Icon from '../icons.jsx';
+import { PasswordInput } from '../ui.jsx';
 import { useCompany, companyName } from '../company.js';
 
 export default function Login({ onLogin }) {
@@ -28,7 +29,7 @@ export default function Login({ onLogin }) {
           <div className="seg"><button type="button" className={lang !== 'en' ? 'on' : ''} onClick={() => setLang('zh')}>中</button><button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button></div>
         </div>
         <label className="f">{t('loginName')}<input className="input" autoComplete="username" autoCapitalize="none" value={login} onChange={(e) => setLogin(e.target.value)} required autoFocus /></label>
-        <label className="f">{t('password')}<input className="input" type="password" inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value.replace(/\D/g, ''))} required /></label>
+        <label className="f">{t('password')}<PasswordInput zh={lang !== 'en'} inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value.replace(/\D/g, ''))} required /></label>
         <label className="check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />{t('remember')}</label>
         {err && <div className="alert err" role="alert">{err}</div>}
         <button className="btn primary" disabled={busy || !login || pw.length !== 6}>{t('login')}</button>

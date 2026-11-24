@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, num } from '../api.js';
 import { useApi } from '../hooks.js';
 import { useT } from '../i18n.jsx';
-import { Modal, download, run, toast } from '../ui.jsx';
+import { Modal, download, run, toast, PasswordInput } from '../ui.jsx';
 import { Changes } from './parts.jsx';
 import { bookmarkletCode } from './Prices.jsx';
 import { reloadCompany } from '../company.js';
@@ -114,13 +114,13 @@ function Users({ zh }) {
           footer={<><button className="btn" onClick={() => setAdd(null)}>{zh ? '取消' : 'Cancel'}</button><button className="btn primary" disabled={!add.login || !/^\d{6}$/.test(add.password)} onClick={async () => { await run(() => api('/api/users', { method: 'POST', body: add }), zh ? '已建立使用者' : 'User created'); setAdd(null); reload(); }}>{zh ? '建立' : 'Create'}</button></>}>
           <label className="f">{zh ? '登入名稱' : 'Login name'}<input className="input" autoCapitalize="none" value={add.login} onChange={(e) => setAdd({ ...add, login: e.target.value.trim() })} /></label>
           <label className="f">{zh ? '姓名（選填）' : 'Name (optional)'}<input className="input" value={add.name} onChange={(e) => setAdd({ ...add, name: e.target.value })} /></label>
-          <label className="f">{zh ? '密碼（6 位數字）' : 'Password (6 digits)'}<input className="input" type="password" inputMode="numeric" maxLength={6} autoComplete="new-password" value={add.password} onChange={(e) => setAdd({ ...add, password: e.target.value.replace(/\D/g, '') })} /></label>
+          <label className="f">{zh ? '密碼（6 位數字）' : 'Password (6 digits)'}<PasswordInput zh={zh} inputMode="numeric" maxLength={6} autoComplete="new-password" value={add.password} onChange={(e) => setAdd({ ...add, password: e.target.value.replace(/\D/g, '') })} /></label>
         </Modal>
       )}
       {pw && (
         <Modal title={(zh ? '重設密碼：' : 'Reset password: ') + pw.u.login} onClose={() => setPw(null)}
           footer={<><button className="btn" onClick={() => setPw(null)}>{zh ? '取消' : 'Cancel'}</button><button className="btn primary" disabled={!/^\d{6}$/.test(pw.password)} onClick={async () => { await run(() => api(`/api/users/${pw.u.id}/password`, { method: 'POST', body: { password: pw.password } }), zh ? '已重設密碼' : 'Password reset'); setPw(null); reload(); }}>{zh ? '重設' : 'Reset'}</button></>}>
-          <label className="f">{zh ? '新密碼（6 位數字）' : 'New password (6 digits)'}<input className="input" type="password" inputMode="numeric" maxLength={6} autoComplete="new-password" value={pw.password} onChange={(e) => setPw({ ...pw, password: e.target.value.replace(/\D/g, '') })} /></label>
+          <label className="f">{zh ? '新密碼（6 位數字）' : 'New password (6 digits)'}<PasswordInput zh={zh} inputMode="numeric" maxLength={6} autoComplete="new-password" value={pw.password} onChange={(e) => setPw({ ...pw, password: e.target.value.replace(/\D/g, '') })} /></label>
           <div className="muted small">{zh ? '請當面或電話告訴對方，不要寫在聊天群組。重設後，對方其他裝置需重新登入。' : 'Tell them in person. Their other devices will be signed out.'}</div>
         </Modal>
       )}
@@ -257,9 +257,10 @@ function Storage({ zh }) {
       actions={<button className="btn primary mini" onClick={() => setEdit({ table: 'cellars', name: '', kind: 'general' })}>{zh ? '＋ 新增酒窖' : '+ Add cellar'}</button>}>
       {data?.map((c) => (
         <div key={c.id} className="rackbox">
-          <div className="row between"><b>{zh ? '酒窖' : 'Cellar'} {c.name}</b><div className="row" style={{ gap: 4 }}>
+          <div className="row between"><div><b>{zh ? '酒窖' : 'Cellar'} {c.name}</b>
+            <span className="muted small" style={{ marginLeft: 10 }}>{c.monthly_rent != null ? (zh ? `月租 NT$${num(c.monthly_rent)}` : `Rent NT$${num(c.monthly_rent)}/mo`) : (zh ? '月租未填' : 'No rent set')}{c.address ? ' · ' + c.address : ''}</span></div><div className="row" style={{ gap: 4 }}>
             <button className="btn mini" onClick={() => setEdit({ table: 'lockers', cellar_id: c.id, code: '' })}>{zh ? '＋ 分儲空間' : '+ Locker'}</button>
-            <button className="btn mini" onClick={() => setEdit({ table: 'cellars', id: c.id, name: c.name, address: c.address || '', note: c.note || '' })}>{zh ? '編輯' : 'Edit'}</button>
+            <button className="btn mini" onClick={() => setEdit({ table: 'cellars', id: c.id, name: c.name, address: c.address || '', monthly_rent: c.monthly_rent ?? '', note: c.note || '' })}>{zh ? '編輯' : 'Edit'}</button>
             {!c.lockers.length && <button className="btn mini" onClick={() => del('cellars', c.id, c.name)}>{zh ? '刪除' : 'Delete'}</button>}</div></div>
           <div className="tbl-wrap" style={{ marginTop: 10 }}><table className="tbl stack">
             <thead><tr><th>{zh ? '分儲空間' : 'Locker'}</th><th>{zh ? '架子' : 'Racks'}</th><th></th></tr></thead>
@@ -272,6 +273,7 @@ function Storage({ zh }) {
                   {l.racks.every((r) => !r.n && !r.cases) && <button className="btn mini" onClick={() => del('lockers', l.id, l.code)}>{zh ? '刪除' : 'Delete'}</button>}</div></td></tr>))}</tbody>
           </table></div>
         </div>))}
+      {data?.some((c) => c.monthly_rent != null) && <div className="small"><b>{zh ? '酒窖月租合計' : 'Total rent per month'}：NT${num(data.reduce((t, c) => t + (c.monthly_rent || 0), 0))}</b></div>}
       <div className="muted small">{zh ? '黃色的「未指定」架子是匯入時建立的預設架子。' : 'Yellow “未指定” racks were created by the import.'} <Link to="/labels">{zh ? '列印分儲空間／架子標籤 ›' : 'Print locker / rack labels ›'}</Link></div>
       {edit && (
         <Modal title={{ cellars: zh ? '酒窖' : 'Cellar', lockers: zh ? '分儲空間' : 'Locker', racks: zh ? '架子' : 'Rack' }[edit.table]} onClose={() => setEdit(null)}
@@ -279,6 +281,7 @@ function Storage({ zh }) {
           {edit.table === 'cellars' ? <>
             <label className="f">{zh ? '名稱 *' : 'Name *'}<input className="input" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></label>
             <label className="f">{zh ? '地址' : 'Address'}<input className="input" value={edit.address || ''} onChange={(e) => setEdit({ ...edit, address: e.target.value })} /></label>
+            <label className="f">{zh ? '每月租金（NT$）' : 'Rent per month (NT$)'}<input className="input" inputMode="numeric" placeholder={zh ? '例如 15000；自有酒窖留空' : 'e.g. 15000; blank if owned'} value={edit.monthly_rent ?? ''} onChange={(e) => setEdit({ ...edit, monthly_rent: e.target.value.replace(/[^\d]/g, '') })} /></label>
           </> : <label className="f">{zh ? '代碼 / 名稱 *' : 'Code / name *'}<input className="input" value={edit.code} onChange={(e) => setEdit({ ...edit, code: e.target.value })} placeholder={edit.table === 'lockers' ? 'A31' : zh ? '上層' : 'Top'} /></label>}
           <label className="f">{zh ? '備註' : 'Note'}<input className="input" value={edit.note || ''} onChange={(e) => setEdit({ ...edit, note: e.target.value })} /></label>
         </Modal>
@@ -330,6 +333,31 @@ const CNT = { wines: ['酒款', 'wines'], bottles: ['酒瓶', 'bottles'], cases:
   users: ['其他使用者', 'other users'], customers: ['客戶', 'customers'], cellars: ['酒窖', 'cellars'], lockers: ['分儲空間', 'lockers'], racks: ['架子', 'racks'], logs: ['筆紀錄', 'entries'] };
 const SCOPE_EN = { inventory: 'Inventory', orders: 'Orders', users: 'Users', customers: 'Customers', cellars: 'Cellars', logs: 'Change log' };
 
+const RETAIN = [['0', '不自動刪除', 'Keep forever'], ['3', '保留 3 個月', 'Keep 3 months'], ['6', '保留 6 個月', 'Keep 6 months'], ['12', '保留 12 個月', 'Keep 12 months']];
+
+function LogRetention({ zh, onDone }) {
+  const [v, setV] = useState(0);
+  const { data } = useApi('/api/admin/logs-retention?v=' + v);
+  const change = async (months) => {
+    if (months !== '0') {
+      const pv = await api('/api/admin/logs-retention?months=' + months);
+      if (pv.wouldDelete && !confirm(zh ? `現在會刪除 ${num(pv.wouldDelete)} 筆超過 ${months} 個月的異動紀錄，之後每天自動刪除。確定？` : `This deletes ${num(pv.wouldDelete)} entries older than ${months} months now, and keeps doing it daily. Continue?`)) return;
+    }
+    const r = await run(() => api('/api/admin/logs-retention', { method: 'POST', body: { months } }), zh ? '已儲存' : 'Saved');
+    if (r?.deleted) toast(zh ? `已刪除 ${num(r.deleted)} 筆舊紀錄` : `Deleted ${num(r.deleted)} old entries`);
+    setV(v + 1); onDone?.();
+  };
+  if (!data) return null;
+  return (
+    <div className="card" style={{ marginTop: 12 }}>
+      <h2 style={{ margin: 0 }}>{zh ? '異動紀錄保存期限' : 'Change-log retention'}</h2>
+      <div className="muted small" style={{ margin: '4px 0 10px' }}>{zh ? '超過期限的異動紀錄每天自動刪除，並留下一筆「自動刪除」紀錄。' : 'Entries older than this are deleted automatically every day; one entry records each deletion.'}</div>
+      <div className="seg">{RETAIN.map(([m, a, b]) => <button key={m} type="button" className={String(data.months) === m ? 'on' : ''} onClick={() => String(data.months) !== m && change(m)}>{zh ? a : b}</button>)}</div>
+      <div className="muted small" style={{ marginTop: 8 }}>{zh ? `目前共 ${num(data.total)} 筆，最早一筆：${data.oldest || '—'}` : `${num(data.total)} entries; oldest ${data.oldest || '—'}`}</div>
+    </div>
+  );
+}
+
 function ClearData({ zh }) {
   const [v, setV] = useState(0);
   const { data } = useApi('/api/admin/clear?v=' + v);
@@ -355,6 +383,7 @@ function ClearData({ zh }) {
               <td><button className="btn mini" style={{ color: 'var(--err)', borderColor: 'var(--err)' }} disabled={!!s.blocked || empty} onClick={() => setDlg({ k, s, phrase: '', password: '' })}>{zh ? '清除…' : 'Clear…'}</button></td>
             </tr>);
         })}</tbody></table></div>
+      <LogRetention zh={zh} onDone={() => setV(v + 1)} />
       {dlg && (
         <Modal title={(zh ? '清除' : 'Clear ') + (zh ? dlg.s.label : SCOPE_EN[dlg.k])} onClose={() => setDlg(null)}
           footer={<><button className="btn" onClick={() => setDlg(null)}>{zh ? '取消' : 'Cancel'}</button>
@@ -363,7 +392,7 @@ function ClearData({ zh }) {
           <label className="f"><span>{zh ? <>第一道確認：請輸入「<b>{dlg.s.phrase}</b>」</> : <>Step 1: type <b>{dlg.s.phrase}</b></>}</span>
             <input className="input" autoComplete="off" value={dlg.phrase} onChange={(e) => setDlg({ ...dlg, phrase: e.target.value })} /></label>
           <label className="f">{zh ? '第二道確認：你自己的 6 位數密碼' : 'Step 2: your own 6-digit password'}
-            <input className="input" type="password" inputMode="numeric" maxLength={6} autoComplete="current-password" value={dlg.password} onChange={(e) => setDlg({ ...dlg, password: e.target.value.replace(/\D/g, '') })} /></label>
+            <PasswordInput zh={zh} inputMode="numeric" maxLength={6} autoComplete="current-password" value={dlg.password} onChange={(e) => setDlg({ ...dlg, password: e.target.value.replace(/\D/g, '') })} /></label>
           <div className="muted small">{zh ? '按下後會先備份整個資料庫到 data/backup，再刪除。' : 'The whole database is backed up to data/backup before deleting.'}</div>
         </Modal>
       )}

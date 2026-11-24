@@ -36,7 +36,43 @@ function blocker(scope, c) {
 }
 const stamp = () => { const d = new Date(), p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
 
+// 異動紀錄保存期限：超過 N 個月的自動刪除（0 = 不自動刪除）
+const olderThan = (months) => `ts < datetime('now','localtime','-${Number(months)} months')`;
+export function purgeOldLogs(db, user = 'system') {
+  const months = Number(readSettings(db).logs?.retain_months || 0);
+  if (![3, 6, 12].includes(months)) return 0;
+  const n = db.prepare(`SELECT COUNT(*) c FROM audit_log WHERE ${olderThan(months)}`).get().c;
+  if (!n) return 0;
+  db.transaction(() => {
+    db.exec(`DROP TRIGGER IF EXISTS audit_no_delete; DELETE FROM audit_log WHERE ${olderThan(months)};`);
+    db.exec("CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is read-only'); END;");
+    audit(db, { user, category: '設定', action: '自動刪除舊異動紀錄', obj_type: 'admin', obj_id: 'logs', obj_label: `保存 ${months} 個月`, changes: { 刪除筆數: n } });
+  })();
+  return n;
+}
+
 export function mountAdmin(app, db, opts = {}) {
+  purgeOldLogs(db);
+  const timer = setInterval(() => { try { purgeOldLogs(db); } catch (e) { console.error('自動刪除異動紀錄失敗', e.message); } }, 60 * 60 * 1000);
+  timer.unref?.();
+  app.get('/api/admin/logs-retention', h((req) => {
+    const months = Number(req.query.months ?? readSettings(db).logs?.retain_months ?? 0);
+    const cur = Number(readSettings(db).logs?.retain_months || 0);
+    const total = db.prepare('SELECT COUNT(*) c FROM audit_log').get().c;
+    const oldest = db.prepare('SELECT MIN(ts) t FROM audit_log').get().t;
+    const wouldDelete = [3, 6, 12].includes(months) ? db.prepare(`SELECT COUNT(*) c FROM audit_log WHERE ${olderThan(months)}`).get().c : 0;
+    return { months: cur, total, oldest, wouldDelete };
+  }));
+  app.post('/api/admin/logs-retention', h((req) => {
+    const months = String(req.body?.months ?? '');
+    if (!['0', '3', '6', '12'].includes(months)) bad('保存期限只能選 3、6、12 個月或不自動刪除');
+    const old = String(readSettings(db).logs?.retain_months || '0');
+    if (old !== months) {
+      db.prepare("INSERT INTO settings (key, value) VALUES ('logs.retain_months', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(months);
+      audit(db, { user: req.user.login, category: '設定', action: '修改紀錄保存期限', obj_type: 'settings', obj_id: 'logs', obj_label: '異動紀錄保存期限', changes: { 保存期限: [old === '0' ? '不自動刪除' : old + ' 個月', months === '0' ? '不自動刪除' : months + ' 個月'] } });
+    }
+    return { months: Number(months), deleted: purgeOldLogs(db, req.user.login) };
+  }));
   // 連線位址：給其他電腦與手機用的網址（需登入）
   app.get('/api/server-info', h(() => {
     const http = opts.httpPort || 3000, https = opts.httpsPort || 3443;

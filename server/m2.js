@@ -216,6 +216,7 @@ export function addPrice(db, wine, b, user, extra = {}) {
 export const SETTINGS_DEFAULTS = {
   company: { name_zh: '示範酒業有限公司', name_en: 'Demo Wine Co., Ltd.', tax_id: '12345678', phone: '02-2345-6789', address: '台北市信義區示範路 1 號', email: 'info@example.com', tax_rate: '5', logo: '' },
   label: { printer: 'TSC TTP-247', bottle_size: '62x29', big_size: '100x62' },
+  logs: { retain_months: '0' },
   price: { site: 'Wine-Searcher', currency: 'TWD', url_template: 'https://www.wine-searcher.com/find/{name}+{vintage}/1/taiwan', stale_days: '30', per_hour: '100', per_day: '300', min_wait: '10', max_wait: '20', order_markup: '0' },
 };
 export function readSettings(db) {
@@ -387,15 +388,17 @@ export function mountM2(app, db) {
       (SELECT COUNT(*) FROM cases c WHERE c.rack_id = k.id) cases FROM racks k ORDER BY is_default DESC, code`).all();
     return cellars.map((c) => ({ ...c, lockers: lockers.filter((l) => l.cellar_id === c.id).map((l) => ({ ...l, racks: racks.filter((r) => r.locker_id === l.id) })) }));
   }));
+  // 月租：NT$ 整數，空白＝沒有
+  const rent = (v) => { const s = String(v ?? '').replace(/[,\s]/g, ''); if (!s) return null; if (!/^\d+$/.test(s)) bad('月租請填數字'); return Number(s); };
   const LOC = {
-    cellars: { label: '酒窖', fields: ['name', 'kind', 'address', 'note'], required: ['name'], show: (r) => r.name },
+    cellars: { label: '酒窖', fields: ['name', 'kind', 'address', 'monthly_rent', 'note'], required: ['name'], show: (r) => r.name },
     lockers: { label: '分儲空間', fields: ['cellar_id', 'code', 'note'], required: ['cellar_id', 'code'], show: (r) => r.code },
     racks: { label: '架子', fields: ['locker_id', 'code', 'note'], required: ['locker_id', 'code'], show: (r) => r.code },
   };
   for (const [table, cfg] of Object.entries(LOC)) {
     app.post(`/api/${table}`, h((req) => tx(() => {
       const b = req.body || {};
-      const row = Object.fromEntries(cfg.fields.map((f) => [f, typeof b[f] === 'string' ? clean(b[f]) || null : b[f] ?? null]));
+      const row = Object.fromEntries(cfg.fields.map((f) => [f, f === 'monthly_rent' ? rent(b[f]) : typeof b[f] === 'string' ? clean(b[f]) || null : b[f] ?? null]));
       for (const f of cfg.required) if (!row[f]) bad('請填寫必填欄位');
       if (table === 'cellars') row.kind ||= 'general';
       const id = db.prepare(`INSERT INTO ${table} (${cfg.fields.join(',')}) VALUES (${cfg.fields.map((f) => '@' + f).join(',')})`).run(row).lastInsertRowid;
@@ -408,7 +411,7 @@ export function mountM2(app, db) {
       const b = req.body || {};
       const editable = cfg.fields.filter((f) => !f.endsWith('_id') && f in b);
       const changes = {};
-      for (const f of editable) { const v = clean(b[f]) || null; if ((old[f] ?? null) !== v) changes[f] = [old[f], v]; }
+      for (const f of editable) { const v = f === 'monthly_rent' ? rent(b[f]) : clean(b[f]) || null; if ((old[f] ?? null) !== v) changes[f] = [old[f], v]; }
       if (!Object.keys(changes).length) return { changed: 0 };
       if (cfg.required.some((f) => f in changes && !changes[f][1])) bad('必填欄位不能空白');
       db.prepare(`UPDATE ${table} SET ${Object.keys(changes).map((f) => `${f} = @${f}`).join(', ')} WHERE id = @id`).run({ ...Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v[1]])), id: old.id });
@@ -620,11 +623,12 @@ export function mountM2(app, db) {
     const up = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
     for (const k of Object.keys(DEFAULTS[g])) if (k in req.body && k !== 'logo') {
       const v = clean(req.body[k]);
+      if (g === 'logs' && k === 'retain_months' && !['0', '3', '6', '12'].includes(String(v))) bad('保存期限只能選 3、6、12 個月或不自動刪除');
       if (g === 'label' && k.endsWith('_size') && !/^\d{2,3}x\d{2,3}$/.test(v)) bad('標籤尺寸格式不正確（例如 50x30）');
       if (g === 'price' && k === 'url_template' && v && !/^https?:\/\//.test(v)) bad('網址需以 http:// 或 https:// 開頭');
       if (String(cur[k] ?? '') !== v) { changes[k] = [cur[k], v]; up.run(`${g}.${k}`, v); }
     }
-    if (Object.keys(changes).length) audit(db, { user: U(req), category: '設定', action: { company: '修改公司資料', price: '修改查價設定', label: '修改標籤設定' }[g], obj_type: 'settings', obj_id: g, obj_label: { company: '公司資料', price: '查價設定', label: '標籤設定' }[g], changes });
+    if (Object.keys(changes).length) audit(db, { user: U(req), category: '設定', action: { company: '修改公司資料', price: '修改查價設定', label: '修改標籤設定', logs: '修改紀錄保存期限' }[g], obj_type: 'settings', obj_id: g, obj_label: { company: '公司資料', price: '查價設定', label: '標籤設定', logs: '異動紀錄保存期限' }[g], changes });
     return getSettings();
   })));
   app.post('/api/settings/logo', upload.single('logo'), h((req) => tx(() => {

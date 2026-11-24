@@ -11,6 +11,16 @@ export const labelKey = (kind, x) => (kind === 'bottle' ? x.bottle_no : kind ===
 
 // 標籤尺寸（mm）：字體與 QR Code 依高度等比例縮放
 export const parseSize = (s, def) => { const m = /^(\d+)x(\d+)$/.exec(s || ''); return m ? { w: +m[1], h: +m[2] } : def; };
+// 一般印表機（A4 等）：一頁排多張
+export const PAPERS = { A4: { w: 210, h: 297 }, Letter: { w: 216, h: 279 } };
+export const MARGIN = 8, GAP = 2;
+export const sheetLayout = (sz, paper) => {
+  const cols = Math.max(1, Math.floor((paper.w - 2 * MARGIN + GAP) / (sz.w + GAP)));
+  const rows = Math.max(1, Math.floor((paper.h - 2 * MARGIN + GAP) / (sz.h + GAP)));
+  return { cols, rows, perPage: cols * rows };
+};
+const LS = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+const LSset = (k, v) => { try { localStorage.setItem(k, v); } catch { /* */ } };
 export const DEF_SIZE = { bottle: { w: 62, h: 29 }, big: { w: 100, h: 62 } };
 const sizeStyle = (sz, base) => ({ width: sz.w + 'mm', height: sz.h + 'mm', '--s': Math.min(sz.h / base.h, sz.w / base.w * 1.15, 1.6).toFixed(3) });
 
@@ -67,6 +77,12 @@ export default function Labels() {
   const sizeStr = cfg ? cfg[grp + '_size'] : (grp === 'bottle' ? '62x29' : '100x62');
   const size = parseSize(sizeStr, DEF_SIZE[grp]);
   const [custom, setCustom] = useState(false);
+  // 列印方式記在這台電腦（每台電腦接的印表機不同）
+  const [mode, setModeS] = useState(() => LS('mywines.labelMode', 'roll'));
+  const [paper, setPaperS] = useState(() => LS('mywines.labelPaper', 'A4'));
+  const setMode = (m) => { setModeS(m); LSset('mywines.labelMode', m); };
+  const setPaper = (p) => { setPaperS(p); LSset('mywines.labelPaper', p); };
+  const lay = sheetLayout(size, PAPERS[paper]);
   const saveCfg = async (patch) => { const r = await run(() => api('/api/settings/label', { method: 'PUT', body: { ...cfg, ...patch } })); if (r) setCfg(r.label); };
 
   useEffect(() => {
@@ -82,7 +98,7 @@ export default function Labels() {
   const srcLabel = src.unprinted ? (zh ? '所有未列印的瓶號' : 'All unprinted bottles') : src.list ? (zh ? '清單：' : 'List: ') + (lists?.find((l) => String(l.id) === String(src.list))?.name || src.title || '')
     : src.bottle_nos ? (zh ? `指定的 ${src.bottle_nos.length} 瓶` : `${src.bottle_nos.length} selected bottles`) : src.case_nos ? (zh ? '酒箱 ' : 'Cases ') + src.case_nos.join('、') : src.query ? (zh ? '搜尋結果' : 'Search results') : '';
   const rackOptions = locs ? locs.flatMap((c) => c.lockers.map((l) => ({ c, l }))) : [];
-  const print = () => nav('/print/labels?k=' + handoff({ kind, labels, size }));
+  const print = () => nav('/print/labels?k=' + handoff({ kind, labels, size, mode, paper }));
 
   return (
     <div className="page" style={{ maxWidth: 1100 }}>
@@ -122,6 +138,14 @@ export default function Labels() {
             <h2>{zh ? '印表機與標籤尺寸' : 'Printer & label size'}</h2>
             <label className="f">{zh ? '標籤印表機' : 'Label printer'}
               <input className="input" defaultValue={cfg?.printer || ''} key={cfg?.printer} onBlur={(e) => e.target.value.trim() !== (cfg?.printer || '') && saveCfg({ printer: e.target.value.trim() })} /></label>
+            <div className="f">{zh ? '列印方式' : 'Print on'}
+              <div className="seg" style={{ marginTop: 4 }}>
+                <button type="button" className={mode === 'roll' ? 'on' : ''} onClick={() => setMode('roll')}>{zh ? '標籤印表機（一張一個）' : 'Label printer (one per label)'}</button>
+                <button type="button" className={mode === 'sheet' ? 'on' : ''} onClick={() => setMode('sheet')}>{zh ? '一般印表機（一頁多張）' : 'Office printer (many per page)'}</button>
+              </div></div>
+            {mode === 'sheet' && <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+              <select className="input" style={{ width: 'auto' }} value={paper} onChange={(e) => setPaper(e.target.value)}>{Object.keys(PAPERS).map((p) => <option key={p}>{p}</option>)}</select>
+              <span className="small">{zh ? `每頁 ${lay.perPage} 張（${lay.cols} × ${lay.rows}），印好沿虛線剪下或用同尺寸的貼紙紙` : `${lay.perPage} per page (${lay.cols} × ${lay.rows}); cut along the dashed lines`}</span></div>}
             <label className="f">{kind === 'bottle' ? (zh ? '酒瓶小標尺寸（寬 × 高）' : 'Bottle label size (W × H)') : (zh ? '酒箱／分儲空間／架子標籤尺寸（寬 × 高）' : 'Case / locker / rack label size (W × H)')}
               <select className="input" value={custom || !PRESETS[grp].includes(sizeStr) ? 'custom' : sizeStr} onChange={(e) => { if (e.target.value === 'custom') setCustom(true); else { setCustom(false); saveCfg({ [grp + '_size']: e.target.value }); } }}>
                 {PRESETS[grp].map((p) => <option key={p} value={p}>{fmt(p)}</option>)}
@@ -132,7 +156,7 @@ export default function Labels() {
                 <input className="input" name="w" type="number" min="20" max="200" defaultValue={size.w} aria-label="width mm" />×
                 <input className="input" name="h" type="number" min="15" max="200" defaultValue={size.h} aria-label="height mm" />mm
                 <button className="btn mini">{zh ? '套用' : 'Apply'}</button></form>)}
-            <div className="small">{zh ? <>按「列印」後，在列印視窗選 <b>{cfg?.printer || 'TSC TTP-247'}</b>，紙張選 <b>{fmt(sizeStr)}</b>，邊界選「無」。瀏覽器不能替你選印表機；把它設為電腦的預設印表機後，就不用每次選（見下方）。</> : <>In the print dialog choose <b>{cfg?.printer || 'TSC TTP-247'}</b>, paper <b>{fmt(sizeStr)}</b>, margins none. Browsers can't pick the printer for you; make it the computer's default printer.</>}</div>
+            <div className="small">{zh ? <>{mode === 'sheet' ? <>按「列印」後，在列印視窗選辦公室的印表機（網路上的印表機都會列在裡面），紙張選 <b>{paper}</b>，縮放選「實際大小／100%」。</> : <>按「列印」後，在列印視窗選 <b>{cfg?.printer || 'TSC TTP-247'}</b>，紙張選 <b>{fmt(sizeStr)}</b>，邊界選「無」。瀏覽器不能替你選印表機；把它設為電腦的預設印表機後，就不用每次選（見下方）。</>}</> : <>In the print dialog choose <b>{cfg?.printer || 'TSC TTP-247'}</b>, paper <b>{fmt(sizeStr)}</b>, margins none. Browsers can't pick the printer for you; make it the computer's default printer.</>}</div>
             <details className="small"><summary>{zh ? '把標籤印表機設為預設印表機' : 'Make it the default printer'}</summary>
               <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
                 <li>{zh ? 'Windows：設定 › 藍牙與裝置 › 印表機與掃描器，關閉「讓 Windows 管理預設印表機」，點這台印表機 › 設為預設。' : 'Windows: Settings › Bluetooth & devices › Printers & scanners, turn off "Let Windows manage my default printer", click the printer › Set as default.'}</li>
