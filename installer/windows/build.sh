@@ -42,3 +42,17 @@ cp "$REPO/public/icon-512.png" "$STAGE/" 2>/dev/null || true
 echo "5/5 打包安裝檔"
 makensis -V2 -DVERSION="$VERSION" -DSTAGE="$STAGE" -DOUTFILE="$OUT/MyWines-Setup-$VERSION.exe" "$HERE/mywines.nsi"
 ls -lh "$OUT/MyWines-Setup-$VERSION.exe"
+
+echo "打包下載用壓縮檔（安裝程式＋使用手冊＋readme.1st.txt）"
+python3 - "$OUT" "$VERSION" "$HERE/docs" <<'PY'
+import sys, zipfile, os
+out, ver, docs = sys.argv[1:4]
+readme = open(os.path.join(docs, 'readme.1st.txt'), encoding='utf-8').read().replace('{{VERSION}}', ver)
+readme = '\ufeff' + readme.replace('\r\n', '\n').replace('\n', '\r\n')   # Windows 記事本：UTF-8 BOM＋CRLF
+z = os.path.join(out, f'MyWines-{ver}.zip')
+with zipfile.ZipFile(z, 'w', zipfile.ZIP_DEFLATED) as f:
+    f.writestr('readme.1st.txt', readme.encode('utf-8'))
+    f.write(os.path.join(out, f'MyWines-Setup-{ver}.exe'), f'MyWines-Setup-{ver}.exe')
+    f.write(os.path.join(docs, '使用手冊.pdf'), '使用手冊.pdf')
+print(z, os.path.getsize(z) // 1024 // 1024, 'MB')
+PY

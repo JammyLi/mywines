@@ -4,8 +4,11 @@
 
 ```bash
 sudo apt install nsis        # macOS：brew install makensis
-installer/windows/build.sh   # → installer/windows/out/MyWines-Setup-<版本>.exe
+installer/windows/build.sh   # → installer/windows/out/MyWines-<版本>.zip（給客戶下載）與 MyWines-Setup-<版本>.exe
 ```
+
+給客戶的是 `MyWines-<版本>.zip`，內含安裝程式、`使用手冊.pdf`、`readme.1st.txt`（第一次安裝與升級說明）。
+手冊有更新時，把新的 PDF 覆蓋 `installer/windows/docs/使用手冊.pdf` 再重新產生。
 
 安裝檔內含：Windows 版 Node.js 22、程式、執行套件（含 Windows 版 better-sqlite3）、WinSW 服務程式。
 客戶電腦不需要先安裝任何東西。
