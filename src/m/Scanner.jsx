@@ -1,3 +1,4 @@
+import { setupUrl } from '../version.js';
 // 相機掃描 QR Code：優先用瀏覽器內建 BarcodeDetector，沒有就用 jsQR
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
@@ -57,7 +58,7 @@ export default function Scanner({ onCode, zh = true, paused = false }) {
 
   if (err) return (
     <div className="scanbox msg">
-      {err === 'https' ? <>{zh ? '相機掃描需要安全連線（HTTPS）。' : 'Camera scanning needs HTTPS.'}<a href={`http://${location.hostname}:${location.port === '3443' ? '3000' : location.port || '3000'}/setup`}>{zh ? '照「手機設定」步驟開啟 ›' : 'Phone setup ›'}</a></>
+      {err === 'https' ? <>{zh ? '相機掃描需要安全連線（HTTPS）。' : 'Camera scanning needs HTTPS.'}<a href={setupUrl()}>{zh ? '照「手機設定」步驟開啟 ›' : 'Phone setup ›'}</a></>
         : err === 'denied' ? (zh ? '沒有相機權限。請到瀏覽器設定允許使用相機，或用下方手動輸入。' : 'Camera permission denied.')
           : (zh ? '找不到相機，請用下方手動輸入。' : 'No camera found.')}
     </div>

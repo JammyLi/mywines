@@ -1,3 +1,4 @@
+import { setupUrl } from '../version.js';
 import { CLIENT_VERSION, useServerVersion, hardReload } from '../version.js';
 import { useContext } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
@@ -21,7 +22,7 @@ export default function More() {
       </div>
       <div className="card row between"><span>{zh ? '介面語言' : 'Language'}</span>
         <div className="seg"><button className={zh ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={!zh ? 'on' : ''} onClick={() => setLang('en')}>EN</button></div></div>
-      <a className="card" href={`http://${location.hostname}:${location.port === '3443' ? '3000' : location.port || '3000'}/setup`}>{zh ? '手機設定（安裝憑證、加入主畫面）›' : 'Phone setup ›'}</a>
+      <a className="card" href={setupUrl()}>{zh ? '手機設定（安裝憑證、加入主畫面）›' : 'Phone setup ›'}</a>
       <div className="muted small" style={{ textAlign: 'center' }}>{zh ? '版本' : 'Version'} v{CLIENT_VERSION}{sv && sv.version !== CLIENT_VERSION && <> · <button className="btn mini" onClick={hardReload}>{zh ? `更新到 v${sv.version}` : `Update to v${sv.version}`}</button></>}</div>
     </div>
   );

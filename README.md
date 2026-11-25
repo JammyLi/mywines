@@ -70,6 +70,16 @@ Mac 第一次啟動時如果跳出「是否允許 node 接受連入連線」，�
 
 也可以用指令匯入：`npm run import -- sample_data/Inventory.xlsx`
 
+## 換連接埠
+
+預設 3000（電腦）與 3443（手機 HTTPS）。和其他程式衝突時，在 `data/config.json`（Windows：`C:\ProgramData\MyWines\config.json`）寫入：
+
+```json
+{"port": 3200, "httpsPort": 3643}
+```
+
+重新啟動後生效。其他電腦、手機的書籤與主畫面圖示要改用新的網址（手機憑證不用重裝）。Windows 另需開放新連接埠的防火牆。
+
 ## 重新開始（清空資料）
 
 在系統裡：**設定 › 清除資料**，可分別清空庫存、訂單、使用者、客戶、酒窖、異動紀錄。

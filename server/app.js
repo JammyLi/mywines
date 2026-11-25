@@ -49,7 +49,7 @@ export function createApp(db, opts = {}) {
   });
   app.get('/setup', async (req, res) => res.type('html').send(await setupPage(req, opts)));
   // 公司名稱與 Logo（登入畫面也要顯示，不需登入）
-  app.get('/api/public/version', (_req, res) => res.json({ version: VERSION, started: STARTED }));
+  app.get('/api/public/version', (_req, res) => res.json({ version: VERSION, started: STARTED, httpPort: opts.httpPort || 3000, httpsPort: opts.httpsPort || 3443 }));
   app.get('/api/public/company', (_req, res) => { const c = readSettings(db).company; res.json({ name_zh: c.name_zh, name_en: c.name_en, logo: c.logo }); });
   app.get('/api/public/logo', (_req, res) => {
     const f = readSettings(db).company.logo;
